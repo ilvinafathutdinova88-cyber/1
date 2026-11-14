@@ -1200,6 +1200,17 @@ button.primary.large {
   min-height: 560px;
 }
 
+.locale-ar .wall {
+  direction: ltr;
+}
+
+.locale-ar .topbar-right,
+.locale-ar .screen-head,
+.locale-ar .act-row,
+.locale-ar .right {
+  direction: rtl;
+}
+
 /* Each mode's screens sit in rows. A row of controls (encoders, pads, text) is "auto": as tall as
    they are. A row of canvases is minmax(min-content, share): they split what is left by share,
    never shorter than their header and minimum body. (Giving control rows a share too made a short
@@ -2105,11 +2116,11 @@ input[type="range"]::-moz-range-thumb {
 .syl-wrap {
   display: inline-flex;
   align-items: center;
-  margin-right: 3px;
+  margin-inline-end: 3px;
 }
 
 .syl-wrap.word-end {
-  margin-right: 10px;
+  margin-inline-end: 10px;
 }
 
 .syl {

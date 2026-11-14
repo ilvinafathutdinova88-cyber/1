@@ -14,9 +14,17 @@ import { Chip, Screen } from "./Screen.tsx";
 import { EncoderPages } from "./Encoder.tsx";
 import { noteName } from "./VoiceControls.tsx";
 import type { InfoFn } from "./AnatomyView.tsx";
+import { translate as t } from "../i18n.ts";
 
 /** epilarynx narrowing for the singer's ring (measured: +3 to +12 dB at 2.4–3.6 kHz, adult male) */
 const RING = 0.85;
+
+const LYRIC_EXAMPLES = [
+  { value: "dawn", label: "Arabic song: dawn", text: "طَلَعَ الْفَجْرُ وَغَنَّى الطَّيْرُ\nوَأَشْرَقَ نُورٌ جَمِيلٌ" },
+  { value: "night", label: "Arabic song: night", text: "يَا لَيْلُ يَا عَيْنُ\nغَنِّي مَعِي وَاسْمَعْ صَوْتِي" },
+  { value: "morning-en", label: "English song: morning", text: "Morning light is on the wall\nWake and hear the songbirds call" },
+  { value: "night-en", label: "English song: night", text: "Softly evening fills the sky\nLittle stars are shining high" },
+];
 
 /** the syllable being sung now: the tune's, or the one the held key is singing */
 function syllableNow(): string | null {
@@ -48,18 +56,21 @@ function Lyrics() {
   const setCursor = useSing((s) => s.setCursor);
   const at = demo ? sungAt : -1;
   const done = demo ? sungAt : cursor;
+  const direction = /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/u.test(lyrics) ? "rtl" : "ltr";
+  const language = useStore((s) => s.language);
   return (
     <div className="lyrics">
       <textarea
         value={lyrics}
+        dir={direction}
         onChange={(e) => setLyrics(e.target.value)}
         onKeyDown={(e) => e.stopPropagation()}
         rows={Math.min(4, lyrics.split("\n").length)}
-        aria-label="Lyrics to sing"
-        placeholder="Type the words to sing"
+        aria-label={t("Lyrics to sing", language)}
+        placeholder={t("Type the words to sing", language)}
         title="Sing sings these words to the tune, a line to each of its phrases. Each key sings the next syllable; hold a key while you press the next one to sing legato. A lone “-” between words holds a vowel over several notes; hyphens split a word your way (“ti-ger”)."
       />
-      <div className="syllables" role="group" aria-label="Syllables. Each note sings the marked one; choose another to start there.">
+      <div className="syllables" dir={direction} role="group" aria-label="Syllables. Each note sings the marked one; choose another to start there.">
         {syllables.map((s, i) => (
           <span key={i} className={`syl-wrap${s.wordEnd ? " word-end" : ""}`}>
             <button
@@ -77,7 +88,7 @@ function Lyrics() {
             )}
           </span>
         ))}
-        {!syllables.length && <span className="dim">No words: the keys sing “ah”.</span>}
+        {!syllables.length && <span className="dim">{t("No words: the keys sing “ah”.", language)}</span>}
         <Chip toggle={false} className="from-start" onClick={() => setCursor(0)} disabled={cursor === 0 && !demo}>
           From the start
         </Chip>
@@ -135,6 +146,9 @@ function SongControls() {
  */
 function SingActions() {
   const start = useStore((s) => s.start);
+  const language = useStore((s) => s.language);
+  const arabicDialect = useSing((s) => s.arabicDialect);
+  const setArabicDialect = useSing((s) => s.setArabicDialect);
   const playing = useSing((s) => s.playing);
   const tune = useSing((s) => s.tune);
   const setTune = useSing((s) => s.setTune);
@@ -227,6 +241,24 @@ function SingActions() {
           if ((playing || pending) && !recording) sing(id);
         }}
       />
+      <Menu
+        label="Lyrics examples"
+        value=""
+        options={[
+          { value: "", label: language === "ar" ? "أمثلة عربية" : "Arabic examples", disabled: true },
+          ...LYRIC_EXAMPLES.filter(({ value }) => (language === "ar" ? !value.endsWith("-en") : value.endsWith("-en"))).map(({ value, label }) => ({ value, label })),
+        ]}
+        onChange={(value) => {
+          const example = LYRIC_EXAMPLES.find((item) => item.value === value);
+          if (example) useSing.getState().setLyrics(example.text);
+        }}
+      />
+      <Menu
+        label="Arabic pronunciation"
+        value={arabicDialect}
+        options={[{ value: "egyptian", label: "Egyptian" }, { value: "msa", label: "Standard Arabic" }]}
+        onChange={setArabicDialect}
+      />
       {canRecord() && (
         <Chip toggle={false} onClick={() => (recording ? stop() : sing(tune, true))} title="Sing it again and record the face into a video">
           {recording ? "Cancel" : "Record video"}
@@ -251,8 +283,15 @@ export function SingRight() {
   // the pronouncing dictionary for the lyrics: here rather than on the mode switch, since the app
   // opens on Sing without one
   useEffect(ensureDictionary, []);
+  const language = useStore((s) => s.language);
+  const lyrics = useSing((s) => s.lyrics);
   const ring = useStore((s) => s.artic.epilarynx >= RING - 0.05);
   const next = useSing((s) => (s.playing ? null : (s.syllables[s.cursor]?.text ?? null)));
+  useEffect(() => {
+    if (!LYRIC_EXAMPLES.some((example) => example.text === lyrics)) return;
+    const example = LYRIC_EXAMPLES.find(({ value }) => (language === "ar" ? !value.endsWith("-en") : value.endsWith("-en")));
+    if (example) useSing.getState().setLyrics(example.text);
+  }, [language]);
   return (
     <div className="right right-sing">
       <SingActions />

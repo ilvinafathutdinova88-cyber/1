@@ -20,6 +20,7 @@ import type { Mode } from "./store.ts";
 import type { BodyName } from "../worklet/protocol.ts";
 import { BodyPad } from "./components/BodyPad.tsx";
 import { presetOf, PRESETS } from "./body.ts";
+import { translate as t, type UiLanguage } from "./i18n.ts";
 
 // three.js only loads when the 3D view is first shown
 const AnatomyView3D = lazy(() => import("./components/AnatomyView3D.tsx").then((m) => ({ default: m.AnatomyView3D })));
@@ -38,6 +39,8 @@ function TopBar() {
   const setVolume = useStore((s) => s.setVolume);
   const mode = useStore((s) => s.mode);
   const setMode = useStore((s) => s.setMode);
+  const language = useStore((s) => s.language);
+  const setLanguage = useStore((s) => s.setLanguage);
   const [load, setLoad] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setLoad(engine.load), 500);
@@ -46,29 +49,38 @@ function TopBar() {
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="wordmark">Chimera</span>
-        <span className="tagline">A voice grown from a simulated airway</span>
+        <span className="wordmark">Chimera Arabic Version</span>
+        <span className="tagline">{t("A voice grown from a simulated airway", language)}</span>
       </div>
       <Segmented<Mode>
-        label="Mode"
+        label={t("Mode", language)}
         value={mode}
         onChange={setMode}
         options={[
-          { value: "play", label: "Play" },
-          { value: "speak", label: "Speak" },
-          { value: "sing", label: "Sing" },
-          { value: "bestiary", label: "Bestiary" },
-          { value: "beatbox", label: "Beatbox" },
+          { value: "play", label: t("Play", language) },
+          { value: "speak", label: t("Speak", language) },
+          { value: "sing", label: t("Sing", language) },
+          { value: "bestiary", label: t("Bestiary", language) },
+          { value: "beatbox", label: t("Beatbox", language) },
         ]}
       />
       <div className="topbar-right">
         <label className="volume">
-          <span>Volume</span>
+          <span>{t("Volume", language)}</span>
           <input type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(Number(e.target.value))} style={{ "--pos": `${volume * 100}%` } as React.CSSProperties} />
         </label>
+        <Segmented<UiLanguage>
+          label={t("Arabic / English", language)}
+          value={language}
+          onChange={setLanguage}
+          options={[
+            { value: "ar", label: "عربي" },
+            { value: "en", label: "English" },
+          ]}
+        />
         {started && (
-          <span className="load" title="Share of the audio thread's time budget used by the simulation">
-            Engine load {Math.round(load * 100)} %
+          <span className="load" title={t("Share of the audio thread's time budget used by the simulation", language)}>
+            {t("Engine load", language)} {Math.round(load * 100)} %
           </span>
         )}
         <a className="repo-link" href="https://github.com/jamesondh/chimera-vocal-synth" target="_blank" rel="noreferrer" aria-label="Source code on GitHub" title="Source code on GitHub">
@@ -181,6 +193,12 @@ function PlayRight() {
 
 export function App() {
   const show = showId();
+  const language = useStore((s) => s.language);
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
+    document.title = language === "ar" ? "شيما - النسخة العربية" : "CHIMERA ARABIC VERSION";
+  }, [language]);
   if (show)
     return (
       <Suspense fallback={null}>
@@ -192,8 +210,9 @@ export function App() {
 
 function Wall() {
   const mode = useStore((s) => s.mode);
+  const language = useStore((s) => s.language);
   return (
-    <div className={`app text-colors mode-${mode}`}>
+    <div className={`app text-colors mode-${mode} locale-${language}`} dir={language === "ar" ? "rtl" : "ltr"}>
       <TopBar />
       <main className={`wall wall-${mode}`}>
         <LeftScreen />

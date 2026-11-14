@@ -1,5 +1,7 @@
 import { useId, useRef, useState, type ReactNode } from "react";
 import { SLOTS } from "../colors.ts";
+import { useStore } from "../store.ts";
+import { translate as t } from "../i18n.ts";
 
 export interface EncoderSpec {
   label: string;
@@ -25,6 +27,7 @@ const SPAN = (270 * Math.PI) / 180;
  */
 export function Encoder(props: EncoderSpec & { slot: number }) {
   const { label, value, min, max, log, onChange, format, slot } = props;
+  const language = useStore((s) => s.language);
   const id = useId();
   const color = SLOTS[slot % 4];
   const toPos = (v: number) => (log ? (Math.log(v) - Math.log(min)) / (Math.log(max) - Math.log(min)) : (v - min) / (max - min));
@@ -41,7 +44,7 @@ export function Encoder(props: EncoderSpec & { slot: number }) {
   return (
     <div className="encoder" style={{ "--slot": color } as React.CSSProperties}>
       <label className="enc-label" htmlFor={id}>
-        {label}
+        {t(label, language)}
       </label>
       <div
         className="enc-dial"
@@ -105,21 +108,22 @@ export interface EncoderPage {
  * positions across pages (so a colour stays put); a single short page can use fewer columns.
  */
 export function EncoderPages(props: { pages: EncoderPage[]; footer?: ReactNode; label: string; columns?: number }) {
+  const language = useStore((s) => s.language);
   const cols = props.columns ?? 4;
   const [page, setPage] = useState(0);
   const p = props.pages[Math.min(page, props.pages.length - 1)];
   return (
     <div className="enc-pages">
       {props.pages.length > 1 && (
-        <div className="enc-tabs" role="group" aria-label={`${props.label} pages`}>
+        <div className="enc-tabs" role="group" aria-label={`${t(props.label, language)} ${language === "ar" ? "صفحات" : "pages"}`}>
           {props.pages.map((pg, i) => (
             <button key={pg.name} type="button" className={`enc-tab${i === page ? " on" : ""}`} aria-pressed={i === page} onClick={() => setPage(i)}>
-              {pg.name}
+              {t(pg.name, language)}
             </button>
           ))}
         </div>
       )}
-      <div className={`enc-row cols-${cols}`} role="group" aria-label={p.name}>
+      <div className={`enc-row cols-${cols}`} role="group" aria-label={t(p.name, language)}>
         {Array.from({ length: cols }, (_, i) => i).map((i) => (p.encoders[i] ? <Encoder key={`${p.name}-${p.encoders[i].label}`} {...p.encoders[i]} slot={i} /> : <div key={`empty-${i}`} className="encoder empty" aria-hidden="true" />))}
       </div>
       {props.footer && <div className="enc-footer">{props.footer}</div>}

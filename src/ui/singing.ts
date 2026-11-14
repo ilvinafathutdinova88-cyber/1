@@ -11,6 +11,7 @@ import { create } from "zustand";
 import { engine } from "../audio/AudioEngine.ts";
 import { g2p } from "./speech.ts";
 import { lyricsToSyllables, type Syllable } from "../wasm/engine.ts";
+import type { ArabicDialect } from "../wasm/types.ts";
 import { planSong, planNoteOn, planNoteOff, planMelisma } from "../wasm/engine.ts";
 import { EXHALE_LABEL } from "../wasm/engine.ts";
 import type { Gesture } from "../wasm/types.ts";
@@ -37,6 +38,7 @@ const AH: Syllable = { text: "ah", onset: [], nucleus: { ipa: "ɑ", stress: 1 },
 
 interface SingState {
   lyrics: string;
+  arabicDialect: ArabicDialect;
   syllables: Syllable[];
   /** the syllable the next key sings */
   cursor: number;
@@ -53,6 +55,7 @@ interface SingState {
   /** index in `syllables` of the one the tune is singing (−1: none, or the tune sings "la") */
   at: number;
   setLyrics: (text: string) => void;
+  setArabicDialect: (dialect: ArabicDialect) => void;
   setCursor: (i: number) => void;
   setVibrato: (cents: number) => void;
   setTune: (id: string) => void;
@@ -63,8 +66,8 @@ interface SingState {
 const KEPT = "chimera-sing";
 
 /** the last session's words, tune, tempo and key (anything missing or odd: the defaults) */
-function kept(): { lyrics: string; tune: string; tempo: number; key: number } {
-  const d = { lyrics: DEFAULT_LYRICS, tune: TUNES[0].id, tempo: 1, key: 0 };
+function kept(): { lyrics: string; tune: string; tempo: number; key: number; arabicDialect: ArabicDialect } {
+  const d = { lyrics: DEFAULT_LYRICS, tune: TUNES[0].id, tempo: 1, key: 0, arabicDialect: "msa" as ArabicDialect };
   try {
     const k = JSON.parse(localStorage.getItem(KEPT) ?? "null") as Record<string, unknown> | null;
     if (!k) return d;
@@ -73,6 +76,7 @@ function kept(): { lyrics: string; tune: string; tempo: number; key: number } {
       tune: TUNES.some((t) => t.id === k.tune) ? (k.tune as string) : d.tune,
       tempo: typeof k.tempo === "number" && k.tempo >= 0.5 && k.tempo <= 1.5 ? k.tempo : d.tempo,
       key: typeof k.key === "number" && Math.abs(k.key) <= 12 ? Math.round(k.key) : d.key,
+      arabicDialect: k.arabicDialect === "msa" || k.arabicDialect === "egyptian" ? k.arabicDialect : d.arabicDialect,
     };
   } catch {
     return d; // no storage here (a private window): start fresh
@@ -85,7 +89,8 @@ let ownWords: string | null = null;
 
 export const useSing = create<SingState>((set, get) => ({
   lyrics: atLoad.lyrics,
-  syllables: lyricsToSyllables(atLoad.lyrics),
+  arabicDialect: atLoad.arabicDialect,
+  syllables: lyricsToSyllables(atLoad.lyrics, atLoad.arabicDialect),
   cursor: 0,
   vibrato: 35,
   tune: atLoad.tune,
@@ -95,7 +100,11 @@ export const useSing = create<SingState>((set, get) => ({
   at: -1,
   setLyrics: (text) => {
     stopDemo();
-    set({ lyrics: text, syllables: lyricsToSyllables(text), cursor: 0 });
+    set({ lyrics: text, syllables: lyricsToSyllables(text, get().arabicDialect), cursor: 0 });
+  },
+  setArabicDialect: (arabicDialect) => {
+    const syllables = lyricsToSyllables(get().lyrics, arabicDialect);
+    set({ arabicDialect, syllables, cursor: Math.min(get().cursor, Math.max(0, syllables.length - 1)) });
   },
   setCursor: (i) => set({ cursor: Math.max(0, Math.min(i, Math.max(0, get().syllables.length - 1))) }),
   setVibrato: (cents) => set({ vibrato: cents }),
@@ -118,9 +127,9 @@ export const useSing = create<SingState>((set, get) => ({
 }));
 
 useSing.subscribe((s, p) => {
-  if (s.lyrics === p.lyrics && s.tune === p.tune && s.tempo === p.tempo && s.key === p.key) return;
+  if (s.lyrics === p.lyrics && s.tune === p.tune && s.tempo === p.tempo && s.key === p.key && s.arabicDialect === p.arabicDialect) return;
   try {
-    localStorage.setItem(KEPT, JSON.stringify({ lyrics: s.lyrics, tune: s.tune, tempo: s.tempo, key: s.key }));
+    localStorage.setItem(KEPT, JSON.stringify({ lyrics: s.lyrics, tune: s.tune, tempo: s.tempo, key: s.key, arabicDialect: s.arabicDialect }));
   } catch {
     // not kept: the session still works
   }
@@ -133,7 +142,7 @@ export function ensureDictionary(): void {
     .load()
     .then(() => {
       const s = useSing.getState();
-      const syllables = lyricsToSyllables(s.lyrics);
+      const syllables = lyricsToSyllables(s.lyrics, s.arabicDialect);
       useSing.setState({ syllables, cursor: Math.min(s.cursor, Math.max(0, syllables.length - 1)) });
     })
     .catch(() => {
@@ -338,8 +347,8 @@ export async function playTune(id: string, body: BodyMix, ready?: () => Promise<
   if (token !== demoToken) return false;
   const st = useSing.getState();
   // read again: the dictionary may have arrived since the words were typed
-  const own = lyricsToSyllables(st.lyrics);
-  const words = own.length ? own : lyricsToSyllables(la(tune));
+  const own = lyricsToSyllables(st.lyrics, st.arabicDialect);
+  const words = own.length ? own : lyricsToSyllables(la(tune), st.arabicDialect);
   const shift = tune.octave[nearestBody(body)] * 12 + st.key;
   // a demo song's own words, unedited: a syllable to each note as written (as `chimera render song`)
   const { notes, from } =

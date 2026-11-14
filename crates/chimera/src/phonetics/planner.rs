@@ -174,6 +174,7 @@ struct Seg<'a> {
     vot: Option<f64>,
     nasalized: Option<bool>,
     palatalized: Option<bool>,
+    pharyngealized: Option<bool>,
     breathy: Option<bool>,
 }
 
@@ -182,6 +183,9 @@ const BREATHY_ABDUCTION: f64 = 0.1;
 /// how long past its release a breathy-voiced stop's folds stay apart (s), at most to the end of
 /// the next segment
 const BREATHY_RELEASE: f64 = 0.08;
+
+/// Prototype blend from the existing emphatic target into neighbouring vowel articulations.
+const EMPHATIC_SPREAD: f64 = 0.35;
 
 /// velum port area (cm²) of a nasalized vowel, and the ramps of its lowering and raising (s)
 const NASAL_VOWEL_PORT: f64 = 0.3;
@@ -211,16 +215,51 @@ pub fn plan_utterance(input: &[Segment], o: &PlanOptions) -> Plan {
             let base = durs[si];
             for (i, p) in parts.iter().enumerate() {
                 let dur = if parts.len() > 1 { base * (if i == 0 { 0.55 } else { 0.45 }) } else { base };
-                segs.push(Seg { ipa: p, dur: Some(dur), stress: s.stress, f0: s.f0, def: None, vowel: None, glide_from: i > 0, aspirated: None, vot: None, nasalized: s.nasalized, palatalized: None, breathy: s.breathy });
+                segs.push(Seg {
+                    ipa: p,
+                    dur: Some(dur),
+                    stress: s.stress,
+                    f0: s.f0,
+                    def: None,
+                    vowel: None,
+                    glide_from: i > 0,
+                    aspirated: None,
+                    vot: None,
+                    nasalized: s.nasalized,
+                    palatalized: None,
+                    pharyngealized: s.pharyngealized,
+                    breathy: s.breathy,
+                });
             }
         } else {
-            segs.push(Seg { ipa: &s.ipa, dur: Some(durs[si]), stress: s.stress, f0: s.f0, def: None, vowel: None, glide_from: false, aspirated: s.aspirated, vot: s.vot, nasalized: s.nasalized, palatalized: s.palatalized, breathy: s.breathy });
+            segs.push(Seg {
+                ipa: &s.ipa,
+                dur: Some(durs[si]),
+                stress: s.stress,
+                f0: s.f0,
+                def: None,
+                vowel: None,
+                glide_from: false,
+                aspirated: s.aspirated,
+                vot: s.vot,
+                nasalized: s.nasalized,
+                palatalized: s.palatalized,
+                pharyngealized: s.pharyngealized,
+                breathy: s.breathy,
+            });
         }
     }
     for s in segs.iter_mut() {
-        let v = vowel_artic(s.ipa, body);
-        if v.is_some() {
-            s.vowel = v;
+        if let Some(mut v) = vowel_artic(s.ipa, body) {
+            if s.pharyngealized == Some(true) {
+                let emphatic = phoneme("sˤ", body).expect("Arabic emphatic targets are in the phoneme inventory").targets;
+                for key in [ArticKey::Root, ArticKey::TbX, ArticKey::TbY] {
+                    if let (Some(base), Some(target)) = (v.get(key), emphatic.get(key)) {
+                        v.set(key, base + EMPHATIC_SPREAD * (target - base));
+                    }
+                }
+            }
+            s.vowel = Some(v);
         } else {
             s.def = phoneme(s.ipa, body);
         }
@@ -510,13 +549,17 @@ const DEFAULT_VOT: f64 = 0.05;
 /// stays free during the lip closure; a rhotic vowel raises it too). After any other vowel ("apt",
 /// "napkin") the timing is unchanged.
 fn pre_placed_behind_closure(segs: &[Seg], i: usize) -> bool {
-    let (Some(def), Some(prev)) = (segs[i].def.as_ref(), i.checked_sub(1).and_then(|j| segs[j].def.as_ref())) else { return false };
+    let (Some(def), Some(prev)) = (segs[i].def.as_ref(), i.checked_sub(1).and_then(|j| segs[j].def.as_ref())) else {
+        return false;
+    };
     if def.manner != Manner::Stop || prev.manner != Manner::Stop || !closes_in_front(prev.place, def.place) || i < 2 {
         return false;
     }
     let before = &segs[i - 2];
     let rhotic = before.vowel.as_ref().filter(|v| v.get(ArticKey::TtCurl).unwrap_or(0.0) > 0.05);
-    let Some(tg) = before.def.as_ref().map(|d| &d.targets).or(rhotic) else { return false };
+    let Some(tg) = before.def.as_ref().map(|d| &d.targets).or(rhotic) else {
+        return false;
+    };
     def.dominant.iter().all(|k| tg.get(*k).is_some())
 }
 
@@ -562,10 +605,30 @@ pub fn oral_gestures_into(def: &PhonemeDef, tg: &ArticPatch, a: f64, b: f64, spe
     // measured movement latencies (closure lag / release lag) per articulator class
     let closing = matches!(def.manner, Manner::Stop | Manner::Nasal | Manner::Affricate);
     let lips_only = def.dominant.iter().all(|k| *k == ArticKey::LipAp || *k == ArticKey::Labiodental);
-    let lead = if closing { if body_only { 0.034 } else if lips_only { 0.019 } else { 0.02 } } else { 0.0 };
+    let lead = if closing {
+        if body_only {
+            0.034
+        } else if lips_only {
+            0.019
+        } else {
+            0.02
+        }
+    } else {
+        0.0
+    };
     // a consonant must own its constriction articulators (Task-Dynamics style): at strength 40
     // the overlapping vowel contributes ~2 %, so closures seal instead of being diluted
-    let early = if closing { if body_only { 0.024 } else if lips_only { 0.022 } else { 0.031 } } else { 0.008 };
+    let early = if closing {
+        if body_only {
+            0.024
+        } else if lips_only {
+            0.022
+        } else {
+            0.031
+        }
+    } else {
+        0.008
+    };
     if !dom.is_empty() {
         out.push(Gesture::new(a - early, js_max(a + 0.01, b - lead), 0.03, if body_only { 0.03 } else { 0.018 }, 40.0, artic_targets(&dom)).speed(sp).release_hold(0.045).label(label));
     }
@@ -606,11 +669,19 @@ pub struct PhraseInput {
 pub fn plan_phrases(phrases: &[PhraseInput], o: &PlanOptions) -> Plan {
     let mut all = Plan { gestures: Vec::new(), segments: Vec::new(), end: o.t0 };
     let mut t = o.t0;
-    for p in phrases {
+    for (i, p) in phrases.iter().enumerate() {
         let plan = plan_utterance(&p.segments, &PlanOptions { t0: t, intonation: Some(p.intonation.unwrap_or(Intonation::Statement)), ..o.clone() });
         all.gestures.extend_from_slice(&plan.gestures);
         all.segments.extend(plan.segments);
-        t = plan.end + p.pause.unwrap_or(0.25);
+        let pause = p.pause.unwrap_or(0.25);
+        t = plan.end + pause;
+        if i + 1 < phrases.len() && pause >= 0.19 {
+            let inhale_start = plan.end + 0.07;
+            let inhale_end = t - 0.04;
+            if inhale_end - inhale_start >= 0.08 {
+                all.gestures.push(Gesture::new(inhale_start, inhale_end, 0.035, 0.035, 1.0, one(ControlKey::BREATH, -0.28)).label("inhale"));
+            }
+        }
         all.end = plan.end;
     }
     all
