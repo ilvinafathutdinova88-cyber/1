@@ -6,13 +6,16 @@
 //! English words come from the pronouncing dictionary (unreduced: sung function words keep full
 //! vowels), are split into syllables by the maximal-onset principle with English onset clusters,
 //! and the spelling is split to match for display ("twin-kle"). Hangul words go to
-//! [`super::korean`], one syllable per block, Cyrillic words to [`super::russian`]. Typed hyphens force syllable breaks; a lone "-" (or
+//! [`super::korean`], one syllable per block, Cyrillic words to [`super::russian`]. Latin script
+//! is English unless the player chooses Turkish ([`Lang`], [`super::turkish`]): the script can't
+//! tell them apart. Typed hyphens force syllable breaks; a lone "-" (or
 //! "~") holds the previous vowel onto the next note (melisma), as in vocaloid editors.
 
 use crate::anatomy::human::BodyMix;
 use super::english::js_is_space;
 use super::korean::Korean;
 use super::russian::Russian;
+use super::turkish::Turkish;
 use super::planner::is_vowel;
 use super::{Segment, Syllable};
 use serde::{Deserialize, Serialize};
@@ -285,5 +288,23 @@ pub fn read_lyrics(text: &str, front_ends: &[&dyn FrontEnd]) -> Vec<Syllable> {
 /// Lyrics text → syllables through the built-in front ends that need no data beyond the English
 /// dictionary: English (`g2p`), Korean and Russian.
 pub fn lyrics_to_syllables(text: &str, g2p: &impl WordSource) -> Vec<Syllable> {
-    read_lyrics(text, &[&English(g2p), &Korean, &Russian])
+    lyrics_in(text, g2p, Lang::En)
+}
+
+/// The language Latin-script lyrics are in. The router tells languages apart by script, which
+/// can't tell Turkish from English, so the player chooses; other scripts are routed as usual.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Lang {
+    #[default]
+    En,
+    Tr,
+}
+
+/// [`lyrics_to_syllables`], with Latin script read as `lang`.
+pub fn lyrics_in(text: &str, g2p: &impl WordSource, lang: Lang) -> Vec<Syllable> {
+    match lang {
+        Lang::En => read_lyrics(text, &[&English(g2p), &Korean, &Russian]),
+        Lang::Tr => read_lyrics(text, &[&Turkish, &Korean, &Russian]),
+    }
 }
