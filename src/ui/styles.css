@@ -930,6 +930,12 @@ input[type="range"]::-moz-range-thumb {
   .tagline {
     display: none;
   }
+  .topbar-right {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
   .bestiary {
     grid-template-columns: 1fr;
   }
@@ -1983,6 +1989,11 @@ input[type="range"]::-moz-range-thumb {
   padding: 1px 3px;
   white-space: nowrap;
   text-align: center;
+}
+
+.locale-ar .ipa-chart th {
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .ipa-chart tbody th {

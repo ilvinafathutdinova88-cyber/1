@@ -1,7 +1,6 @@
 export type UiLanguage = "en" | "ar";
 
 const ar: Record<string, string> = {
-  "Chimera Arabic Version": "شيما - النسخة العربية",
   "A voice grown from a simulated airway": "صوت ينشأ من مجرى هوائي مُحاكى",
   Mode: "الوضع",
   Play: "عزف",
@@ -104,6 +103,12 @@ const ar: Record<string, string> = {
   "English examples": "أمثلة إنجليزية",
   "Arabic song: dawn": "أغنية عربية: الفجر",
   "Arabic song: night": "أغنية عربية: الليل",
+  "Arabic song: garden": "أغنية عربية: الحديقة",
+  "Arabic song: home": "أغنية عربية: البيت",
+  "Nasheed: Tala al-Badru": "نشيد: طَلَعَ الْبَدْرُ عَلَيْنَا",
+  "Poem: Sawt Safir al-Bulbul": "قصيدة: صَوْتُ صَفِيرِ الْبُلْبُلِ",
+  "Tala al-Badru — Nasheed": "طَلَعَ الْبَدْرُ — إِنْشَادٌ",
+  "Sawt Safir — Rhythmic Recitation": "صَوْتُ صَفِيرِ الْبُلْبُلِ — إِلْقَاءٌ إِيقَاعِيٌّ",
   "English song: morning": "أغنية إنجليزية: الصباح",
   "English song: night": "أغنية إنجليزية: الليل",
   "Lyrics examples": "أمثلة الكلمات",

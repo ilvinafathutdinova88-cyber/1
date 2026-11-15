@@ -21,15 +21,26 @@ const EXAMPLES = [
   "She sells sea shells by the sea shore.",
   "Every sound here is air moving through a throat.",
   "The quick brown fox jumps over the lazy dog.",
-  "أَنَا اِسْمِي الْفَارُوقُ، وَأُحِبُّ الْغِنَاءَ.",
-  "صَبَاحُ الْخَيْرِ، كَيْفَ حَالُكَ؟",
-  "إِزَّيَّك؟ أَنَا بِخَيْر.",
+  "اِسْمِي الْفَارُوقُ، وَأُطَوِّرُ مَشَارِيعَ بِاسْتِخْدَامِ الذَّكَاءِ الِاصْطِنَاعِيِّ.",
+  "صَبَاحُ الْخَيْرِ، كَيْفَ حَالُكَ الْيَوْمَ؟",
+  "تَتَحَرَّكُ الرِّئَتَانِ، فَيَنْدَفِعُ الْهَوَاءُ عَبْرَ الْحَلْقِ.",
+  "يَتَغَيَّرُ صَوْتِي حِينَ أَرْفَعُ طَبَقَتَهُ.",
+  "هَلْ تَسْمَعُ نَبْرَةَ التَّنَفُّسِ فِي هَذِهِ الْجُمْلَةِ؟",
+  "يَسْتَغْرِقُ النَّفَسُ الْهَادِئُ وَقْتًا أَطْوَلَ مِنَ النَّفَسِ السَّرِيعِ.",
+  "تُسَاعِدُ الْحَرَكَاتُ عَلَى قِرَاءَةِ الْكَلِمَةِ بِوُضُوحٍ.",
+  "يَقْرَأُ الطِّفْلُ قِصَّةً صَغِيرَةً قَبْلَ النَّوْمِ.",
+  "فِي الْحَدِيقَةِ عُصْفُورٌ يُغَرِّدُ فَوْقَ غُصْنٍ أَخْضَرَ.",
+  "مِنْ فَضْلِكَ، تَكَلَّمْ بِبُطْءٍ لِأَفْهَمَ كُلَّ كَلِمَةٍ.",
+  "أُحِبُّ اللُّغَةَ الْعَرَبِيَّةَ وَأَسْتَمْتِعُ بِسَمَاعِ الشِّعْرِ.",
+  "نَسْتَخْدِمُ الذَّكَاءَ الِاصْطِنَاعِيَّ لِبِنَاءِ أَدَوَاتٍ تُفِيدُ النَّاسَ.",
+  "إِزَّيَّكَ؟ أَنَا زَيِّ الْفُلِّ، وَالْحَمْدُ لِلَّهِ.",
 ];
 
 // IPA pulmonic consonant chart (rows = manner, columns = place); empty cells are null
 const PLACES = ["Bilabial", "Labiodental", "Dental", "Alveolar", "Postalveolar", "Retroflex", "Palatal", "Velar", "Uvular", "Pharyngeal", "Glottal"];
 /** short headings for the chart's narrow columns (the full names are the cells' titles) */
 const PLACE_SHORT = ["Bilab", "Labdent", "Dental", "Alveol", "Postalv", "Retrofl", "Palatal", "Velar", "Uvular", "Pharyn", "Glottal"];
+const PLACE_AR_SHORT = ["شفوي", "سني", "أسناني", "لثوي", "بعد لثوي", "مرتد", "حنكي", "طبقي", "لهوي", "بلعومي", "حنجري"];
 const MANNER_SHORT: Record<string, string> = { "Lateral fricative": "Lat fric", Approximant: "Approx" };
 const CHART: [string, (string | null)[][]][] = [
   ["Plosive", [["p", "b"], [null, null], [null, null], ["t", "d"], [null, null], ["ʈ", "ɖ"], ["c", "ɟ"], ["k", "g"], ["q", "ɢ"], [null, null], ["ʔ", null]]],
@@ -93,7 +104,7 @@ function ConsonantChart(props: { onPad: (c: string) => void }) {
             <th />
             {PLACES.map((p, i) => (
               <th key={p} scope="col" title={t(p, language)} aria-label={t(p, language)}>
-                {language === "ar" ? t(p, language) : PLACE_SHORT[i]}
+                {language === "ar" ? PLACE_AR_SHORT[i] : PLACE_SHORT[i]}
               </th>
             ))}
           </tr>
@@ -146,7 +157,7 @@ export function SpeakRight() {
   const language = useStore((s) => s.language);
   const f0 = useStore((s) => s.source.f0);
   const start = useStore((s) => s.start);
-  const [text, setText] = useState(EXAMPLES[0]);
+  const [text, setText] = useState(language === "ar" ? EXAMPLES[4] : EXAMPLES[0]);
   const [ipa, setIpa] = useState(false);
   const [rate, setRate] = useState(1);
   const [dialect, setDialect] = useState<ArabicDialect>("msa");

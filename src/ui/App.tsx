@@ -49,7 +49,7 @@ function TopBar() {
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="wordmark">Chimera Arabic Version</span>
+        <span className="wordmark">CHIMERA</span>
         <span className="tagline">{t("A voice grown from a simulated airway", language)}</span>
       </div>
       <Segmented<Mode>

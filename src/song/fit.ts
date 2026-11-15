@@ -97,6 +97,45 @@ export function fitLine(line: Syllable[], phrase: readonly [number, number][]): 
   return { notes: out, from: notes.map((_, j) => at(j)) };
 }
 
+const ARABIC_SCRIPT = /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/u;
+
+/** Keep every Arabic syllable, but let each word move through at most two melody pitches. */
+export function groupArabicWordPitches(notes: SungNote[], from: number[], syllables: Syllable[]): void {
+  const firstNote = new Map<number, number>();
+  from.forEach((syllableIndex, noteIndex) => {
+    if (!notes[noteIndex].syl.melisma && !firstNote.has(syllableIndex)) firstNote.set(syllableIndex, noteIndex);
+  });
+
+  for (let start = 0; start < syllables.length; ) {
+    let end = start;
+    while (end < syllables.length - 1 && !syllables[end].wordEnd) end++;
+    while (end < syllables.length - 1 && syllables[end + 1].melisma) end++;
+    const word = syllables.slice(start, end + 1);
+    const isArabic = word.some((s) => !s.melisma && ARABIC_SCRIPT.test(s.text));
+    const pronounced = word.map((s, i) => (!s.melisma ? start + i : -1)).filter((i) => i >= 0);
+    if (isArabic && pronounced.length) {
+      const pitchGroups = Math.min(2, pronounced.length);
+      const split = Math.ceil(pronounced.length / pitchGroups);
+      const pitchIndices = [firstNote.get(pronounced[0])];
+      if (pitchGroups > 1) pitchIndices.push(firstNote.get(pronounced[split]));
+      if (pitchIndices.every((i): i is number => i !== undefined)) {
+        const pitches = pitchIndices.map((i) => notes[i].midi);
+        const ordinalBySyllable = new Map(pronounced.map((index, ordinal) => [index, ordinal]));
+        for (let noteIndex = 0; noteIndex < notes.length; noteIndex++) {
+          let syllableIndex = from[noteIndex];
+          while (syllables[syllableIndex]?.melisma && syllableIndex > start) syllableIndex--;
+          const ordinal = ordinalBySyllable.get(syllableIndex);
+          if (ordinal !== undefined && syllableIndex <= end) {
+            const group = pitchGroups === 1 || ordinal < split ? 0 : 1;
+            notes[noteIndex] = { ...notes[noteIndex], midi: pitches[group] };
+          }
+        }
+      }
+    }
+    start = end + 1;
+  }
+}
+
 /**
  * The whole song: every line on its phrase, `shift` semitones from the tune's pitch. `from[k]` is
  * the index in `syls` of the syllable note k sings.
@@ -108,6 +147,7 @@ export function fitSong(tune: Tune, syls: Syllable[], shift = 0): { notes: SungN
     for (const n of f.notes) notes.push({ ...n, midi: n.midi + shift });
     for (const j of f.from) from.push(line[j]);
   });
+  groupArabicWordPitches(notes, from, syls);
   return { notes, from };
 }
 

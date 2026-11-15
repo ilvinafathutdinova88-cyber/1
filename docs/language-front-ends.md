@@ -45,6 +45,10 @@ consonant. Unvowelled words use a conservative short-/a/ insertion fallback, so 
 improves pronunciation substantially. In Sing, the displayed Arabic spelling follows available
 vowel marks and long-vowel letters when it can identify syllable boundaries; the lyrics and
 syllables read right to left, while their playback order remains the written order.
+The Sing lyrics display groups each Arabic word as one selectable unit; its actual phonetic
+syllables remain intact and are still sung in order. Automatic melody fitting gives each Arabic
+word one pitch level for a single syllable, or at most two for a longer word. Speak plans a word's
+phonemes continuously, without inserting rests between its syllables.
 This front end is not a Quran/Tajweed reciter; Quranic recitation signs and connected recitation
 rules are not modeled.
 
