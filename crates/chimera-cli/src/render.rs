@@ -268,6 +268,7 @@ pub fn song(ctx: &Ctx, a: &[String]) -> Result<(), String> {
                 bpm: song.bpm,
                 t0: 0.3,
                 vibrato: 35.0,
+                breath: None,
             },
         );
         v.schedule(&plan.gestures);
@@ -493,7 +494,9 @@ fn render_tracked(v: &mut HumanVoice, out: &mut [f32], artic: bool, tele: bool) 
     Ok((frames, rec))
 }
 
-/// A melody from a JSON file: `{"bpm", "lyrics", "notes": [[midi, beats], ...], "vibrato"?}`.
+/// A melody from a JSON file: `{"bpm", "lyrics", "notes": [[midi, beats], ...], "vibrato"?,
+/// "breath"?}`. `"breath"` is the seconds of audible breath at a phrase end between two notes
+/// (a comma in the lyrics); without it the voice does not breathe in.
 /// One lyric syllable per sounding note; a note with midi <= 0 is a rest, which splits the
 /// melody into phrases planned separately on one voice.
 /// `render notes <in.json> <out> [body] [--artic tracks.json] [--tele voice.tele]`: `--artic` also
@@ -525,6 +528,8 @@ pub fn notes(ctx: &Ctx, a: &[String]) -> Result<(), String> {
     let j: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("{input}: {e}"))?;
     let bpm = j["bpm"].as_f64().ok_or("bpm missing")?;
     let vibrato = j["vibrato"].as_f64().unwrap_or(35.0);
+    // seconds of audible breath at a phrase end between two notes; absent: none
+    let breath = j["breath"].as_f64();
     let raw: Vec<[f64; 2]> = serde_json::from_value(j["notes"].clone()).map_err(|e| format!("notes: {e}"))?;
     // "syllables" sing what a language front end wrote; otherwise the lyrics go through the
     // English front end (the pronouncing dictionary)
@@ -557,7 +562,7 @@ pub fn notes(ctx: &Ctx, a: &[String]) -> Result<(), String> {
         if phrase.is_empty() {
             return;
         }
-        let plan = plan_song(phrase, &SongOptions { body: body_name.into(), bpm, t0: start, vibrato });
+        let plan = plan_song(phrase, &SongOptions { body: body_name.into(), bpm, t0: start, vibrato, breath });
         v.schedule(&plan.gestures);
         *end = js_max(*end, plan.end);
         phrase.clear();
