@@ -9,7 +9,6 @@ import { BEAT_PRESETS, BASS_NOTE, beatReady, parseBeat, type BeatStep } from "..
 import { singNoteOn, singNoteOff, stopSinging } from "./singing.ts";
 import { stopSpeaking } from "./speech.ts";
 import { connectMidi, disconnectMidi, type MidiStatus } from "./midi.ts";
-import type { UiLanguage } from "./i18n.ts";
 
 export type Mode = "play" | "speak" | "sing" | "bestiary" | "beatbox";
 
@@ -46,8 +45,6 @@ interface State {
   heldNotes: number[];
   view: ViewOptions;
   mode: Mode;
-  language: UiLanguage;
-  setLanguage: (language: UiLanguage) => void;
   setMode: (m: Mode) => void;
   /** active non-human creature in the bestiary */
   creature: string;
@@ -147,8 +144,6 @@ export const useStore = create<State>((set, get) => ({
   view: { pressure: true, particles: true, grid: false, calipers: true, threeD: false },
   // the app opens on Sing: hearing a song is the quickest way in (the plugin opens there too)
   mode: "sing",
-  language: "en",
-  setLanguage: (language) => set({ language }),
   setMode: (m) => {
     const prev = get().mode;
     if (prev === m) return;

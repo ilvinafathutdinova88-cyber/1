@@ -330,11 +330,6 @@ async function main() {
     for (const m of modes) {
       await mode(m);
       await check(m);
-      if (m === "speak" || m === "sing") {
-        await page.getByRole("radio", { name: "عربي", exact: true }).click();
-        await check(`${m} Arabic`);
-        await page.getByRole("radio", { name: "English", exact: true }).click();
-      }
     }
     // each tab's main button starts the audio: Play's breathes (then stop breathing)
     await mode("play");

@@ -1,6 +1,4 @@
 import { useId } from "react";
-import { useStore } from "../store.ts";
-import { translate as t } from "../i18n.ts";
 
 export function Slider(props: {
   label: string;
@@ -13,7 +11,6 @@ export function Slider(props: {
   log?: boolean;
 }) {
   const id = useId();
-  const language = useStore((s) => s.language);
   const { label, value, min, max, step, onChange, format, log } = props;
   const toPos = (v: number) => (log ? (Math.log(v) - Math.log(min)) / (Math.log(max) - Math.log(min)) : (v - min) / (max - min));
   const fromPos = (p: number) => (log ? Math.exp(Math.log(min) + p * (Math.log(max) - Math.log(min))) : min + p * (max - min));
@@ -21,7 +18,7 @@ export function Slider(props: {
   return (
     <div className="slider">
       <label htmlFor={id}>
-        <span>{t(label, language)}</span>
+        <span>{label}</span>
         <output>{format ? format(value) : value.toFixed(2)}</output>
       </label>
       <input
@@ -39,22 +36,20 @@ export function Slider(props: {
 }
 
 export function Toggle(props: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  const language = useStore((s) => s.language);
   return (
     <label className="toggle">
       <input type="checkbox" checked={props.checked} onChange={(e) => props.onChange(e.target.checked)} />
-      <span>{t(props.label, language)}</span>
+      <span>{props.label}</span>
     </label>
   );
 }
 
 export function Segmented<T extends string>(props: { value: T | null; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
-  const language = useStore((s) => s.language);
   return (
-    <div className="segmented" role="radiogroup" aria-label={t(props.label, language)}>
+    <div className="segmented" role="radiogroup" aria-label={props.label}>
       {props.options.map((o) => (
         <button key={o.value} role="radio" aria-checked={props.value === o.value} className={props.value === o.value ? "on" : ""} onClick={() => props.onChange(o.value)}>
-          {t(o.label, language)}
+          {o.label}
         </button>
       ))}
     </div>
@@ -63,7 +58,6 @@ export function Segmented<T extends string>(props: { value: T | null; options: {
 
 /** A choice of a few named things (a song, a pattern), as a native select in the vector look. */
 export function Menu<T extends string>(props: { label: string; value: T; options: { value: T; label: string; disabled?: boolean }[]; onChange: (v: T) => void; icon?: "note" }) {
-  const language = useStore((s) => s.language);
   return (
     <span className={`menu${props.icon ? " with-icon" : ""}`}>
       {props.icon === "note" && (
@@ -72,10 +66,10 @@ export function Menu<T extends string>(props: { label: string; value: T; options
           <path d="M6.6 12.4V1.5l4.4 2.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
         </svg>
       )}
-      <select aria-label={t(props.label, language)} value={props.value} onChange={(e) => props.onChange(e.target.value as T)}>
+      <select aria-label={props.label} value={props.value} onChange={(e) => props.onChange(e.target.value as T)}>
         {props.options.map((o) => (
           <option key={o.value} value={o.value} disabled={o.disabled}>
-            {t(o.label, language)}
+            {o.label}
           </option>
         ))}
       </select>

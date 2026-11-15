@@ -26,25 +26,6 @@ async function run(viewport: { width: number; height: number }, tag: string) {
   page.on("pageerror", (e) => errors.push(`[${tag}] pageerror: ${e.message}`));
   await page.goto(url, { waitUntil: "networkidle" });
   await page.waitForTimeout(400);
-  await page.getByRole("radio", { name: "عربي", exact: true }).click();
-  const arabicUi = await page.evaluate(() => ({
-    language: document.documentElement.lang,
-    direction: document.documentElement.dir,
-  }));
-  if (arabicUi.language !== "ar" || arabicUi.direction !== "rtl") {
-    errors.push(`[${tag}] Arabic mode should set the document to Arabic/RTL, got ${arabicUi.language}/${arabicUi.direction}`);
-  }
-  const songExamples = await page.getByRole("combobox", { name: "أمثلة الكلمات" }).locator("option").allTextContents();
-  if (!songExamples.some((text) => text.includes("طَلَعَ الْبَدْرُ")) || !songExamples.some((text) => text.includes("صَوْتُ صَفِيرِ الْبُلْبُلِ"))) {
-    errors.push(`[${tag}] Arabic nasheed or poem example is missing (${songExamples.join(" | ")})`);
-  }
-  await page.getByRole("radio", { name: "تحدث", exact: true }).click();
-  const speechExamples = await page.getByRole("combobox", { name: "أمثلة", exact: true }).locator("option").allTextContents();
-  if (speechExamples.length < 13 || !speechExamples.some((text) => text.includes("اِسْمِي الْفَارُوقُ"))) {
-    errors.push(`[${tag}] expanded Arabic speech examples are missing (${speechExamples.length})`);
-  }
-  await page.getByRole("radio", { name: "English", exact: true }).click();
-  await page.getByRole("radio", { name: "Sing", exact: true }).click();
   await page.screenshot({ path: `${outDir}/${tag}-0-idle.png` });
   // the app opens on Sing; this run starts in Play
   await page.getByRole("radio", { name: "Play" }).click();

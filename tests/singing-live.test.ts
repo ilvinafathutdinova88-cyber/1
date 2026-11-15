@@ -42,7 +42,7 @@ const engineStub = new Proxy(
   { get: (t, k) => (k in t ? t[k as string] : () => {}), set: (t, k, v) => ((t[k as string] = v), true) },
 );
 mock.module("../src/audio/AudioEngine.ts", () => ({ engine: engineStub }));
-const { useSing, singNoteOn, singNoteOff, playTune, stopSinging, tickSinging, lyricDisplayUnits, arabicWordAt } = await import("../src/ui/singing.ts");
+const { useSing, singNoteOn, singNoteOff, playTune, stopSinging, tickSinging } = await import("../src/ui/singing.ts");
 const gesturesOf = () => voice.score();
 /** breath the score is giving now (strength-weighted activation of breath gestures) */
 const breathNow = () => {
@@ -224,7 +224,7 @@ describe("Sing mode, live keys", () => {
     const { TUNES } = await import("../src/song/tunes.ts");
     const melodies = TUNES.map((t) => JSON.stringify(t.phrases.flat()));
     for (const d of DEMO_SONGS) expect(melodies).toContain(JSON.stringify(d.notes.map(([m, b]) => [m, b])));
-    const songs = TUNES.filter((t) => t.id.startsWith("song:"));
+    const songs = TUNES.filter((t) => t.lyrics !== undefined);
     expect(songs.map((t) => t.name)).toContain("Ночной ветер");
     voice = new WasmVoice(FS);
     const sing = useSing.getState;
@@ -256,44 +256,6 @@ describe("Sing mode, live keys", () => {
     engineStub.schedule = schedule;
     sing().setTune("dreamy");
     sing().setLyrics("Hello there");
-  });
-
-  test("the Arabic nasheed and poem play through their final lyric line", async () => {
-    const { TUNES, TALA_AL_BADRU_ID, SAWT_SAFIR_AL_BULBUL_ID } = await import("../src/song/tunes.ts");
-    const { lyricsToSyllables } = await import("../src/wasm/engine.ts");
-    const { fitSong } = await import("../src/song/fit.ts");
-    const sing = useSing.getState;
-
-    for (const id of [TALA_AL_BADRU_ID, SAWT_SAFIR_AL_BULBUL_ID]) {
-      const tune = TUNES.find((t) => t.id === id);
-      if (!tune?.lyrics) throw new Error(`Missing Arabic tune: ${id}`);
-      voice = new WasmVoice(FS);
-      sing().setTempo(1);
-      sing().setTune(id);
-      expect(sing().lyrics).toBe(tune.lyrics);
-      const fitted = fitSong(tune, lyricsToSyllables(tune.lyrics));
-      expect(await playTune(id, MALE, () => Promise.resolve())).toBe(true);
-
-      const last = fitted.notes.length - 1;
-      const lastStart = 0.35 + fitted.notes.slice(0, last).reduce((time, note) => time + note.beats * (60 / tune.bpm), 0);
-      planned({ type: "planned", id: 1, t0: voice.clock - lastStart - 0.01, end: 0 });
-      tickSinging();
-      expect(sing().playing).toBe(id);
-      expect(sing().at).toBe(fitted.from[last]);
-      stopSinging();
-    }
-  });
-
-  test("Arabic syllables remain intact while the lyric display groups each word", async () => {
-    const { lyricsToSyllables } = await import("../src/wasm/engine.ts");
-    const syllables = lyricsToSyllables("كَتَبَ كِتَابًا");
-    const units = lyricDisplayUnits(syllables);
-
-    expect(syllables).toHaveLength(6);
-    expect(units.map((unit) => unit.text)).toEqual(["كَتَبَ", "كِتَابًا"]);
-    expect(units.map((unit) => [unit.start, unit.end])).toEqual([[0, 2], [3, 5]]);
-    expect(arabicWordAt(syllables, 1)?.text).toBe("كَتَبَ");
-    expect(arabicWordAt(syllables, 4)?.text).toBe("كِتَابًا");
   });
 
   test("empty lyrics sing the tune on la, highlighting nothing", async () => {

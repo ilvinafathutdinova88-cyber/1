@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store.ts";
-import { DEFAULT_LYRICS, useSing, playTune, stopSinging, soundingSyllable, sungNow, TUNES, ensureDictionary, arabicWordAt, lyricDisplayUnits } from "../singing.ts";
+import { useSing, playTune, stopSinging, soundingSyllable, sungNow, TUNES, ensureDictionary } from "../singing.ts";
 import { engine } from "../../audio/AudioEngine.ts";
 import { canRecord, Clip } from "../../song/record.ts";
 import { mouthWords } from "../mouthWords.ts";
@@ -14,27 +14,14 @@ import { Chip, Screen } from "./Screen.tsx";
 import { EncoderPages } from "./Encoder.tsx";
 import { noteName } from "./VoiceControls.tsx";
 import type { InfoFn } from "./AnatomyView.tsx";
-import { translate as t } from "../i18n.ts";
-import { SAWT_SAFIR_AL_BULBUL_ID, SAWT_SAFIR_AL_BULBUL_LYRICS, TALA_AL_BADRU_ID, TALA_AL_BADRU_LYRICS } from "../../song/tunes.ts";
 
 /** epilarynx narrowing for the singer's ring (measured: +3 to +12 dB at 2.4–3.6 kHz, adult male) */
 const RING = 0.85;
 
-const LYRIC_EXAMPLES = [
-  { value: "dawn", label: "Arabic song: dawn", tune: "dreamy", text: DEFAULT_LYRICS },
-  { value: "night", label: "Arabic song: night", tune: "somber", text: "يَا لَيْلُ يَا عَيْنُ\nغَنِّي مَعِي وَاسْمَعْ صَوْتِي" },
-  { value: "garden", label: "Arabic song: garden", tune: "joyful", text: "فِي الْحَدِيقَةِ زَهْرَةٌ\nتَحْكِي لَنَا لَوْنَ الرَّبِيعِ" },
-  { value: "home", label: "Arabic song: home", tune: "gentle", text: "بَيْتِي دَفِيءٌ وَالْقُلُوبُ قَرِيبَةٌ\nفِيهِ الْمَوَدَّةُ وَالسَّلَامُ" },
-  { value: TALA_AL_BADRU_ID, label: "Nasheed: Tala al-Badru", tune: TALA_AL_BADRU_ID, text: TALA_AL_BADRU_LYRICS },
-  { value: SAWT_SAFIR_AL_BULBUL_ID, label: "Poem: Sawt Safir al-Bulbul", tune: SAWT_SAFIR_AL_BULBUL_ID, text: SAWT_SAFIR_AL_BULBUL_LYRICS },
-  { value: "morning-en", label: "English song: morning", tune: "dreamy", text: "Morning light is on the wall\nWake and hear the songbirds call" },
-  { value: "night-en", label: "English song: night", tune: "somber", text: "Softly evening fills the sky\nLittle stars are shining high" },
-];
-
 /** the syllable being sung now: the tune's, or the one the held key is singing */
 function syllableNow(): string | null {
   const s = useSing.getState();
-  if (s.playing) return arabicWordAt(s.syllables, s.at)?.text ?? s.syllables[s.at]?.text ?? null;
+  if (s.playing) return s.syllables[s.at]?.text ?? null;
   return soundingSyllable();
 }
 
@@ -46,7 +33,7 @@ export const singInfo: InfoFn = (_m, _f, tele) => {
   const out: string[] = [];
   if (tele && tele.t.voicing > 0.3) out.push(`Note ${noteName(tele.t.f0)} ${tele.t.f0.toFixed(0)} Hz`);
   const syl = syllableNow();
-  if (syl) out.push(`${/[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/u.test(syl) ? "Word" : "Syllable"} ${syl}`);
+  if (syl) out.push(`Syllable ${syl}`);
   out.push(useStore.getState().artic.epilarynx >= RING - 0.05 ? "Ring on" : "Ring off");
   return out;
 };
@@ -61,45 +48,37 @@ function Lyrics() {
   const setCursor = useSing((s) => s.setCursor);
   const at = demo ? sungAt : -1;
   const done = demo ? sungAt : cursor;
-  const direction = /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/u.test(lyrics) ? "rtl" : "ltr";
-  const units = lyricDisplayUnits(syllables);
-  const language = useStore((s) => s.language);
   return (
     <div className="lyrics">
       <textarea
         value={lyrics}
-        dir={direction}
+        dir="auto"
         onChange={(e) => setLyrics(e.target.value)}
         onKeyDown={(e) => e.stopPropagation()}
         rows={Math.min(4, lyrics.split("\n").length)}
-        aria-label={t("Lyrics to sing", language)}
-        placeholder={t("Type the words to sing", language)}
+        aria-label="Lyrics to sing"
+        placeholder="Type the words to sing"
         title="Sing sings these words to the tune, a line to each of its phrases. Each key sings the next syllable; hold a key while you press the next one to sing legato. A lone “-” between words holds a vowel over several notes; hyphens split a word your way (“ti-ger”)."
       />
-      <div className="syllables" dir={direction} role="group" aria-label="Pronunciation units. Each note sings the next syllable; Arabic words are grouped.">
-        {units.map((unit) => {
-          const current = at >= unit.start && at <= unit.end;
-          const next = !demo && cursor >= unit.start && cursor <= unit.end;
-          const sung = unit.end < done;
-          return (
-            <span key={unit.start} className={`syl-wrap${unit.wordEnd ? " word-end" : ""}`}>
-              <button
-                className={`syl${next ? " next" : ""}${current ? " now" : ""}${sung ? " sung" : ""}${unit.melisma ? " held" : ""}`}
-                onClick={() => setCursor(unit.start)}
-                aria-current={next ? "step" : undefined}
-                title={unit.melisma ? "Held vowel: carries the previous syllable onto this note" : `Sing from “${unit.text}”`}
-              >
-                {unit.text}
-              </button>
-              {unit.phraseEnd && (
-                <span className="breath-mark" aria-label="breath">
-                  ’
-                </span>
-              )}
-            </span>
-          );
-        })}
-        {!syllables.length && <span className="dim">{t("No words: the keys sing “ah”.", language)}</span>}
+      <div className="syllables" role="group" aria-label="Syllables. Each note sings the marked one; choose another to start there.">
+        {syllables.map((s, i) => (
+          <span key={i} className={`syl-wrap${s.wordEnd ? " word-end" : ""}`}>
+            <button
+              className={`syl${!demo && i === cursor ? " next" : ""}${i === at ? " now" : ""}${i < done ? " sung" : ""}${s.melisma ? " held" : ""}`}
+              onClick={() => setCursor(i)}
+              aria-current={!demo && i === cursor ? "step" : undefined}
+              title={s.melisma ? "Held vowel: carries the previous syllable onto this note" : `Sing from “${s.text}”`}
+            >
+              {s.text}
+            </button>
+            {s.phraseEnd && (
+              <span className="breath-mark" aria-label="breath">
+                ’
+              </span>
+            )}
+          </span>
+        ))}
+        {!syllables.length && <span className="dim">No words: the keys sing “ah”.</span>}
         <Chip toggle={false} className="from-start" onClick={() => setCursor(0)} disabled={cursor === 0 && !demo}>
           From the start
         </Chip>
@@ -157,7 +136,6 @@ function SongControls() {
  */
 function SingActions() {
   const start = useStore((s) => s.start);
-  const language = useStore((s) => s.language);
   const arabicDialect = useSing((s) => s.arabicDialect);
   const setArabicDialect = useSing((s) => s.setArabicDialect);
   const playing = useSing((s) => s.playing);
@@ -252,27 +230,7 @@ function SingActions() {
           if ((playing || pending) && !recording) sing(id);
         }}
       />
-      <Menu
-        label="Lyrics examples"
-        value=""
-        options={[
-          { value: "", label: language === "ar" ? "أمثلة عربية" : "Arabic examples", disabled: true },
-          ...LYRIC_EXAMPLES.filter(({ value }) => (language === "ar" ? !value.endsWith("-en") : value.endsWith("-en"))).map(({ value, label }) => ({ value, label })),
-        ]}
-        onChange={(value) => {
-          const example = LYRIC_EXAMPLES.find((item) => item.value === value);
-          if (example) {
-            setTune(example.tune);
-            useSing.getState().setLyrics(example.text);
-          }
-        }}
-      />
-      <Menu
-        label="Arabic pronunciation"
-        value={arabicDialect}
-        options={[{ value: "egyptian", label: "Egyptian" }, { value: "msa", label: "Standard Arabic" }]}
-        onChange={setArabicDialect}
-      />
+      <Menu label="Arabic pronunciation" value={arabicDialect} options={[{ value: "egyptian", label: "Egyptian" }, { value: "msa", label: "Standard Arabic" }]} onChange={setArabicDialect} />
       {canRecord() && (
         <Chip toggle={false} onClick={() => (recording ? stop() : sing(tune, true))} title="Sing it again and record the face into a video">
           {recording ? "Cancel" : "Record video"}
@@ -297,18 +255,8 @@ export function SingRight() {
   // the pronouncing dictionary for the lyrics: here rather than on the mode switch, since the app
   // opens on Sing without one
   useEffect(ensureDictionary, []);
-  const language = useStore((s) => s.language);
-  const lyrics = useSing((s) => s.lyrics);
   const ring = useStore((s) => s.artic.epilarynx >= RING - 0.05);
   const next = useSing((s) => (s.playing ? null : (s.syllables[s.cursor]?.text ?? null)));
-  useEffect(() => {
-    if (!LYRIC_EXAMPLES.some((example) => example.text === lyrics)) return;
-    const example = LYRIC_EXAMPLES.find(({ value }) => (language === "ar" ? !value.endsWith("-en") : value.endsWith("-en")));
-    if (example) {
-      useSing.getState().setTune(example.tune);
-      useSing.getState().setLyrics(example.text);
-    }
-  }, [language]);
   return (
     <div className="right right-sing">
       <SingActions />

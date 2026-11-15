@@ -14,33 +14,19 @@ import type { InfoFn, SlotsFn } from "./AnatomyView.tsx";
 import { V } from "../colors.ts";
 import { engine } from "../../audio/AudioEngine.ts";
 import type { ArabicDialect } from "../../wasm/types.ts";
-import { speechDirection, translate as t } from "../i18n.ts";
 
 const EXAMPLES = [
   "Hello. Can you hear me?",
   "She sells sea shells by the sea shore.",
   "Every sound here is air moving through a throat.",
   "The quick brown fox jumps over the lazy dog.",
-  "اِسْمِي الْفَارُوقُ، وَأُطَوِّرُ مَشَارِيعَ بِاسْتِخْدَامِ الذَّكَاءِ الِاصْطِنَاعِيِّ.",
-  "صَبَاحُ الْخَيْرِ، كَيْفَ حَالُكَ الْيَوْمَ؟",
-  "تَتَحَرَّكُ الرِّئَتَانِ، فَيَنْدَفِعُ الْهَوَاءُ عَبْرَ الْحَلْقِ.",
-  "يَتَغَيَّرُ صَوْتِي حِينَ أَرْفَعُ طَبَقَتَهُ.",
-  "هَلْ تَسْمَعُ نَبْرَةَ التَّنَفُّسِ فِي هَذِهِ الْجُمْلَةِ؟",
-  "يَسْتَغْرِقُ النَّفَسُ الْهَادِئُ وَقْتًا أَطْوَلَ مِنَ النَّفَسِ السَّرِيعِ.",
-  "تُسَاعِدُ الْحَرَكَاتُ عَلَى قِرَاءَةِ الْكَلِمَةِ بِوُضُوحٍ.",
-  "يَقْرَأُ الطِّفْلُ قِصَّةً صَغِيرَةً قَبْلَ النَّوْمِ.",
-  "فِي الْحَدِيقَةِ عُصْفُورٌ يُغَرِّدُ فَوْقَ غُصْنٍ أَخْضَرَ.",
-  "مِنْ فَضْلِكَ، تَكَلَّمْ بِبُطْءٍ لِأَفْهَمَ كُلَّ كَلِمَةٍ.",
-  "أُحِبُّ اللُّغَةَ الْعَرَبِيَّةَ وَأَسْتَمْتِعُ بِسَمَاعِ الشِّعْرِ.",
-  "نَسْتَخْدِمُ الذَّكَاءَ الِاصْطِنَاعِيَّ لِبِنَاءِ أَدَوَاتٍ تُفِيدُ النَّاسَ.",
-  "إِزَّيَّكَ؟ أَنَا زَيِّ الْفُلِّ، وَالْحَمْدُ لِلَّهِ.",
+  "\u0627\u0650\u0633\u0652\u0645\u0650\u064a \u0627\u0644\u0652\u0641\u064e\u0627\u0631\u064f\u0648\u0642\u064f\u060c \u0648\u064e\u0623\u064f\u0637\u064e\u0648\u0651\u0650\u0631\u064f \u0645\u064e\u0634\u064e\u0627\u0631\u0650\u064a\u0639\u064e \u0628\u0650\u0627\u0633\u0652\u062a\u0650\u062e\u0652\u062f\u064e\u0627\u0645\u0650 \u0627\u0644\u0630\u0651\u064e\u0643\u064e\u0627\u0621\u0650 \u0627\u0644\u0627\u0650\u0635\u0652\u0637\u0650\u0646\u064e\u0627\u0639\u0650\u064a\u0651\u0650.",
 ];
 
 // IPA pulmonic consonant chart (rows = manner, columns = place); empty cells are null
 const PLACES = ["Bilabial", "Labiodental", "Dental", "Alveolar", "Postalveolar", "Retroflex", "Palatal", "Velar", "Uvular", "Pharyngeal", "Glottal"];
 /** short headings for the chart's narrow columns (the full names are the cells' titles) */
 const PLACE_SHORT = ["Bilab", "Labdent", "Dental", "Alveol", "Postalv", "Retrofl", "Palatal", "Velar", "Uvular", "Pharyn", "Glottal"];
-const PLACE_AR_SHORT = ["شفوي", "سني", "أسناني", "لثوي", "بعد لثوي", "مرتد", "حنكي", "طبقي", "لهوي", "بلعومي", "حنجري"];
 const MANNER_SHORT: Record<string, string> = { "Lateral fricative": "Lat fric", Approximant: "Approx" };
 const CHART: [string, (string | null)[][]][] = [
   ["Plosive", [["p", "b"], [null, null], [null, null], ["t", "d"], [null, null], ["ʈ", "ɖ"], ["c", "ɟ"], ["k", "g"], ["q", "ɢ"], [null, null], ["ʔ", null]]],
@@ -91,7 +77,6 @@ export const speechInfo: InfoFn = (m, _f, tele) => {
 
 function ConsonantChart(props: { onPad: (c: string) => void }) {
   const [now, setNow] = useState<string | null>(null);
-  const language = useStore((s) => s.language);
   useEffect(() => {
     const id = setInterval(() => setNow(engine.latest ? soundingSegment() : null), 60);
     return () => clearInterval(id);
@@ -103,8 +88,8 @@ function ConsonantChart(props: { onPad: (c: string) => void }) {
           <tr>
             <th />
             {PLACES.map((p, i) => (
-              <th key={p} scope="col" title={t(p, language)} aria-label={t(p, language)}>
-                {language === "ar" ? PLACE_AR_SHORT[i] : PLACE_SHORT[i]}
+              <th key={p} scope="col" title={p} aria-label={p}>
+                {PLACE_SHORT[i]}
               </th>
             ))}
           </tr>
@@ -112,8 +97,8 @@ function ConsonantChart(props: { onPad: (c: string) => void }) {
         <tbody>
           {CHART.map(([manner, cells]) => (
             <tr key={manner}>
-              <th scope="row" title={t(manner, language)} aria-label={t(manner, language)}>
-                {language === "ar" ? t(manner, language) : MANNER_SHORT[manner] ?? manner}
+              <th scope="row" title={manner} aria-label={manner}>
+                {MANNER_SHORT[manner] ?? manner}
               </th>
               {cells.map((pair, i) => (
                 <td key={i}>
@@ -154,10 +139,9 @@ function useSpeaking(): boolean {
 /** Speak mode's right column: the speak button, what to say, the gestural score, the consonant chart, the tube and folds. */
 export function SpeakRight() {
   const body = useStore((s) => s.body);
-  const language = useStore((s) => s.language);
   const f0 = useStore((s) => s.source.f0);
   const start = useStore((s) => s.start);
-  const [text, setText] = useState(language === "ar" ? EXAMPLES[4] : EXAMPLES[0]);
+  const [text, setText] = useState(EXAMPLES[0]);
   const [ipa, setIpa] = useState(false);
   const [rate, setRate] = useState(1);
   const [dialect, setDialect] = useState<ArabicDialect>("msa");
@@ -168,9 +152,6 @@ export function SpeakRight() {
   useEffect(() => onPlan((p) => setTrans(p?.transcription ?? "")), []);
   // in IPA mode: the symbols in the box that the voice will not say, updated as the text changes
   const skipped = useMemo(() => (ipa ? skippedLines(text) : []), [ipa, text]);
-  useEffect(() => {
-    if (EXAMPLES.includes(text)) setText(language === "ar" ? EXAMPLES[4] : EXAMPLES[0]);
-  }, [language]);
 
   const speak = async () => {
     setBusy(true);
@@ -218,8 +199,7 @@ export function SpeakRight() {
           <div className="say-row">
             <textarea
               value={text}
-              dir={/[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/u.test(text) ? "rtl" : text ? "ltr" : speechDirection(language)}
-              lang={/[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/u.test(text) ? "ar" : language}
+              dir="auto"
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void speak();
@@ -227,8 +207,8 @@ export function SpeakRight() {
               }}
               rows={2}
               spellCheck={!ipa}
-              aria-label={t(ipa ? "IPA to speak" : "Text to speak", language)}
-              placeholder={t(ipa ? "Type IPA, for example ˈhɛloʊ" : "Type something for the voice to say", language)}
+              aria-label={ipa ? "IPA to speak" : "Text to speak"}
+              placeholder={ipa ? "Type IPA, for example ˈhɛloʊ" : "Type something for the voice to say"}
             />
           </div>
           <div className="say-row">

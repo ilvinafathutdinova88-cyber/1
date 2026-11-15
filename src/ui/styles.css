@@ -930,12 +930,6 @@ input[type="range"]::-moz-range-thumb {
   .tagline {
     display: none;
   }
-  .topbar-right {
-    width: 100%;
-    min-width: 0;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
   .bestiary {
     grid-template-columns: 1fr;
   }
@@ -1204,17 +1198,6 @@ button.primary.large {
   grid-template-columns: minmax(0, 700fr) minmax(0, 696fr);
   gap: 12px;
   min-height: 560px;
-}
-
-.locale-ar .wall {
-  direction: ltr;
-}
-
-.locale-ar .topbar-right,
-.locale-ar .screen-head,
-.locale-ar .act-row,
-.locale-ar .right {
-  direction: rtl;
 }
 
 /* Each mode's screens sit in rows. A row of controls (encoders, pads, text) is "auto": as tall as
@@ -1991,11 +1974,6 @@ input[type="range"]::-moz-range-thumb {
   text-align: center;
 }
 
-.locale-ar .ipa-chart th {
-  letter-spacing: 0;
-  text-transform: none;
-}
-
 .ipa-chart tbody th {
   text-align: left;
 }
@@ -2127,11 +2105,11 @@ input[type="range"]::-moz-range-thumb {
 .syl-wrap {
   display: inline-flex;
   align-items: center;
-  margin-inline-end: 3px;
+  margin-right: 3px;
 }
 
 .syl-wrap.word-end {
-  margin-inline-end: 10px;
+  margin-right: 10px;
 }
 
 .syl {

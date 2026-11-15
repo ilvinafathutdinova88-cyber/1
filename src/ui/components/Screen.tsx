@@ -1,6 +1,4 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { useStore } from "../store.ts";
-import { translate as t } from "../i18n.ts";
 
 /**
  * One screen on the wall: a black panel with a thin frame and a single-stroke title.
@@ -10,14 +8,13 @@ import { translate as t } from "../i18n.ts";
  */
 export function Screen(props: { title?: string; sub?: string; lead?: ReactNode; focus?: boolean; className?: string; tools?: ReactNode; children: ReactNode; label?: string }) {
   const { title, sub, lead, focus, className, tools, children, label } = props;
-  const language = useStore((s) => s.language);
   return (
-    <section className={`screen${focus ? " focus" : ""}${className ? " " + className : ""}`} aria-label={label ? t(label, language) : title ? t(title, language) : undefined}>
+    <section className={`screen${focus ? " focus" : ""}${className ? " " + className : ""}`} aria-label={label ?? title}>
       {(title || lead || sub || tools) && (
         <header className="screen-head">
-          {title && <h2 className="screen-title">{t(title, language)}</h2>}
+          {title && <h2 className="screen-title">{title}</h2>}
           {lead}
-          {sub && <span className="screen-sub">{t(sub, language)}</span>}
+          {sub && <span className="screen-sub">{sub}</span>}
           {tools && <div className="screen-tools">{tools}</div>}
         </header>
       )}
@@ -29,10 +26,9 @@ export function Screen(props: { title?: string; sub?: string; lead?: ReactNode; 
 /** A framed caps button; `on` lights it and sets aria-pressed (a toggle) unless it's a plain action. */
 export function Chip(props: ButtonHTMLAttributes<HTMLButtonElement> & { on?: boolean; toggle?: boolean; tone?: "slot0" | "slot1" | "slot2" | "slot3" | "amber" }) {
   const { on, toggle = true, tone, className, children, ...rest } = props;
-  const language = useStore((s) => s.language);
   return (
     <button type="button" {...rest} className={`chip${on ? " on" : ""}${tone ? " " + tone : ""}${className ? " " + className : ""}`} aria-pressed={toggle ? !!on : undefined}>
-      {typeof children === "string" ? t(children, language) : children}
+      {children}
     </button>
   );
 }
