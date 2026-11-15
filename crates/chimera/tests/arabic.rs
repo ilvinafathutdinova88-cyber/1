@@ -41,6 +41,14 @@ fn alif_lengthens_the_vowel_and_shadda_lengthens_its_consonant() {
 }
 
 #[test]
+fn partial_vocalization_keeps_the_unmarked_vowel_fallback() {
+    assert_eq!(
+        ipa(&arabic::word_segments("مَدّ", ArabicDialect::Msa)),
+        ["m", "a", "d"]
+    );
+}
+
+#[test]
 fn dagger_alif_and_tanwin_are_realized_as_vowels_and_final_n() {
     let haadha = arabic::word_segments("هٰذَا", ArabicDialect::Msa);
     assert!(haadha.iter().any(|s| s.ipa == "a" && s.dur == Some(0.18)));

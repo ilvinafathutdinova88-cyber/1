@@ -197,7 +197,7 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
-    document.title = language === "ar" ? "شيما - النسخة العربية" : "CHIMERA ARABIC VERSION";
+    document.title = language === "ar" ? "شيما - النسخة العربية" : "CHIMERA";
   }, [language]);
   if (show)
     return (

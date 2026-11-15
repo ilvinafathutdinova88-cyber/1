@@ -138,9 +138,15 @@ pub fn word_segments(word: &str, dialect: ArabicDialect) -> Vec<Segment> {
     if gs.is_empty() {
         return Vec::new();
     }
-    let vowelled = gs
-        .iter()
-        .any(|g| g.vowel.is_some() || g.sukun || g.shadda || g.tanwin);
+    // A word is explicitly vocalized only when it has vowel marks and its
+    // consonant marks do not hide an otherwise missing vowel. Shadda and sukun
+    // constrain consonants, but do not supply the vowel in partial input such as
+    // "مدّ".
+    let vowelled = gs.iter().any(|g| g.vowel.is_some() || g.tanwin)
+        && gs
+            .iter()
+            .filter(|g| is_letter(g.letter) && !matches!(g.letter, 'ا' | 'و' | 'ي' | 'ى'))
+            .all(|g| g.vowel.is_some() || g.sukun || g.shadda || g.tanwin);
     let mut out: Vec<Segment> = Vec::with_capacity(gs.len() * 2);
 
     for (i, g) in gs.iter().enumerate() {
