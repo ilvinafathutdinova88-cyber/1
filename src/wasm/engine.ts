@@ -111,8 +111,9 @@ export class EnglishG2P {
   }
 
   /** Text → phrases of segments. */
-  toPhrases(text: string): Phrase[] {
-    return call("g2pPhrases", { text });
+  /** Text → phrases to speak. `lang` "es" reads it as Spanish, as spoken in Spain (no dictionary needed). */
+  toPhrases(text: string, lang: LyricsLang = "en"): Phrase[] {
+    return call("g2pPhrases", lang === "en" ? { text } : { text, lang });
   }
 
   /** One word → segments with lexical stress. `reduce`: weak forms of function words (speech). */
@@ -121,9 +122,14 @@ export class EnglishG2P {
   }
 }
 
-/** Lyrics → sung syllables, through the page's dictionary (see EnglishG2P). */
-export function lyricsToSyllables(text: string): Syllable[] {
-  return call("lyricsToSyllables", { text });
+/** Which language reads lyrics in Latin letters: English or Spanish (Spain). */
+export type LyricsLang = "en" | "es";
+
+/** Lyrics → sung syllables, through the page's dictionary (see EnglishG2P). `lang` picks the
+ * language for Latin letters (script can't tell Spanish from English); Hangul and Cyrillic words
+ * are read as Korean and Russian whatever it is. */
+export function lyricsToSyllables(text: string, lang: LyricsLang = "en"): Syllable[] {
+  return call("lyricsToSyllables", lang === "en" ? { text } : { text, lang });
 }
 
 // ------------------------------------------------------------------ planning

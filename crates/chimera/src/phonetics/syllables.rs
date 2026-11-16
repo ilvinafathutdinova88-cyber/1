@@ -6,13 +6,15 @@
 //! English words come from the pronouncing dictionary (unreduced: sung function words keep full
 //! vowels), are split into syllables by the maximal-onset principle with English onset clusters,
 //! and the spelling is split to match for display ("twin-kle"). Hangul words go to
-//! [`super::korean`], one syllable per block, Cyrillic words to [`super::russian`]. Typed hyphens force syllable breaks; a lone "-" (or
+//! [`super::korean`], one syllable per block, Cyrillic words to [`super::russian`]; Latin words go
+//! to [`super::spanish`] instead of English when the singer chooses Spanish ([`Latin`]). Typed hyphens force syllable breaks; a lone "-" (or
 //! "~") holds the previous vowel onto the next note (melisma), as in vocaloid editors.
 
 use crate::anatomy::human::BodyMix;
 use super::english::js_is_space;
 use super::korean::Korean;
 use super::russian::Russian;
+use super::spanish::Spanish;
 use super::planner::is_vowel;
 use super::{Segment, Syllable};
 use serde::{Deserialize, Serialize};
@@ -285,5 +287,34 @@ pub fn read_lyrics(text: &str, front_ends: &[&dyn FrontEnd]) -> Vec<Syllable> {
 /// Lyrics text → syllables through the built-in front ends that need no data beyond the English
 /// dictionary: English (`g2p`), Korean and Russian.
 pub fn lyrics_to_syllables(text: &str, g2p: &impl WordSource) -> Vec<Syllable> {
-    read_lyrics(text, &[&English(g2p), &Korean, &Russian])
+    lyrics_to_syllables_in(text, g2p, Latin::English)
+}
+
+/// Which language reads words in Latin letters. Script can't tell Spanish from English, so the
+/// singer chooses; Hangul and Cyrillic words still go to Korean and Russian.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Latin {
+    #[default]
+    English,
+    /// Spanish as spoken in Spain (/θ/ for c, z before e, i)
+    Spanish,
+}
+
+impl Latin {
+    /// "en" or "es" (Spain); anything else is None
+    pub fn from_code(code: &str) -> Option<Latin> {
+        Some(match code {
+            "en" => Latin::English,
+            "es" | "es-ES" => Latin::Spanish,
+            _ => return None,
+        })
+    }
+}
+
+/// [`lyrics_to_syllables`] with words in Latin letters read as `latin`.
+pub fn lyrics_to_syllables_in(text: &str, g2p: &impl WordSource, latin: Latin) -> Vec<Syllable> {
+    match latin {
+        Latin::English => read_lyrics(text, &[&English(g2p), &Korean, &Russian]),
+        Latin::Spanish => read_lyrics(text, &[&Spanish, &Korean, &Russian]),
+    }
 }

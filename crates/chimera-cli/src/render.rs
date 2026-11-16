@@ -22,7 +22,7 @@ use chimera::phonetics::sing::{
     plan_song,
 };
 use chimera::phonetics::songs::DEMO_SONGS;
-use chimera::phonetics::syllables::lyrics_to_syllables;
+use chimera::phonetics::syllables::{lyrics_to_syllables, lyrics_to_syllables_in, Latin};
 use chimera::phonetics::{Intonation, Plan, Syllable};
 use chimera::voice::human_voice::{HumanVoice, SCOPE_POINTS, SourcePatch, VoiceTelemetry};
 use std::io::Read;
@@ -157,10 +157,13 @@ pub fn text_f0(body_name: &str) -> f64 {
 
 /// Say `text` the way `render text` does: CMUdict G2P, the phrase planner from t0 = 50 ms, the
 /// body's speaking f0, 300 ms of tail. `chimera compare tsp` measures exactly these renders.
-pub fn say(g: &EnglishG2P, text: &str, body_name: &str) -> Result<Spoken, String> {
+pub fn say(g: &EnglishG2P, text: &str, body_name: &str, latin: Latin) -> Result<Spoken, String> {
     let b = body(body_name)?;
     let f0 = text_f0(body_name);
-    let phrases = g.to_phrases(text);
+    let phrases = match latin {
+        Latin::English => g.to_phrases(text),
+        Latin::Spanish => chimera::phonetics::spanish::to_phrases(text),
+    };
     let shown: Vec<String> = phrases
         .iter()
         .map(|p| {
@@ -204,12 +207,18 @@ pub fn say(g: &EnglishG2P, text: &str, body_name: &str) -> Result<Spoken, String
 
 /// English text through G2P and the phrase planner. `render text <out> ["Text."] [body]`
 pub fn text(ctx: &Ctx, a: &[String]) -> Result<(), String> {
+    // --lang en|es anywhere among the arguments
+    let k = a.iter().position(|x| x == "--lang");
+    let lang = k.map(|k| a.get(k + 1).map(String::as_str).ok_or("--lang needs a value")).transpose()?;
+    let a: Vec<String> = a.iter().enumerate().filter(|(i, _)| k.is_none_or(|k| *i != k && *i != k + 1)).map(|(_, x)| x.clone()).collect();
+    let a = &a[..];
+    let latin = latin(lang)?;
     let name = arg(a, 0, "out/text");
     let text = arg(a, 1, "Hello world.");
     let body_name = arg(a, 2, "male");
     let g = g2p()?;
     let t = Instant::now();
-    let s = say(&g, text, body_name)?;
+    let s = say(&g, text, body_name, latin)?;
     let ms = ms_since(t);
     println!("{}", s.shown);
     let file = wav_name(name);
@@ -526,13 +535,14 @@ pub fn notes(ctx: &Ctx, a: &[String]) -> Result<(), String> {
     let bpm = j["bpm"].as_f64().ok_or("bpm missing")?;
     let vibrato = j["vibrato"].as_f64().unwrap_or(35.0);
     let raw: Vec<[f64; 2]> = serde_json::from_value(j["notes"].clone()).map_err(|e| format!("notes: {e}"))?;
-    // "syllables" sing what a language front end wrote; otherwise the lyrics go through the
-    // English front end (the pronouncing dictionary)
+    // "syllables" sing what a language front end wrote; otherwise the lyrics go through the front
+    // ends, Latin letters read as "lang" ("en", the default, or "es")
     let syl: Vec<Syllable> = if j.get("syllables").is_some() {
         serde_json::from_value(j["syllables"].clone()).map_err(|e| format!("syllables: {e}"))?
     } else {
         let g = g2p()?;
-        lyrics_to_syllables(j["lyrics"].as_str().ok_or("lyrics missing")?, &g)
+        let latin = latin(j["lang"].as_str())?;
+        lyrics_to_syllables_in(j["lyrics"].as_str().ok_or("lyrics missing")?, &g, latin)
     };
     let sounding = raw.iter().filter(|n| n[0] > 0.0).count();
     if syl.len() != sounding {
@@ -897,4 +907,12 @@ pub fn vowels(ctx: &Ctx, a: &[String]) -> Result<(), String> {
     }
     ctx.write_wav(&wav_name(name), &out)?;
     Ok(())
+}
+
+/// The language for Latin letters from a "lang" code (None: English).
+pub fn latin(code: Option<&str>) -> Result<Latin, String> {
+    match code {
+        None => Ok(Latin::English),
+        Some(c) => Latin::from_code(c).ok_or_else(|| format!("lang: unknown {c:?} (en, es)")),
+    }
 }

@@ -15,6 +15,7 @@ pub mod planner;
 pub mod russian;
 pub mod sing;
 pub mod songs;
+pub mod spanish;
 pub mod syllables;
 pub mod vowel_data;
 

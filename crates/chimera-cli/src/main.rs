@@ -17,14 +17,14 @@ const USAGE: &str = "\
 usage: chimera <command> [args] [--float]
 
   render speech  <out> [\"ipa / ipa\"] [male|female|child]
-  render text    <out> [\"English text.\"] [male|female|child]
+  render text    <out> [\"English text.\"] [male|female|child] [--lang en|es]
   render song    [outdir] [male|female|child]
   render notes   <in.json> <out> [male|female|child] [--artic tracks.json] [--tele voice.tele]
                  (melody file; midi <= 0 is a rest; --artic also writes the articulators at 100 Hz)
   render beatbox [outdir] [preset name | pattern] [male|female|child] [bpm] [bars]
   render creature [creatureId] [outdir]
   render vowels  [male|female|child] [out]
-  syllables      \"lyrics\"    (what the language front ends read: one JSON syllable per sung note)
+  syllables      [--lang en|es] \"lyrics\"    (what the language front ends read: one JSON syllable per sung note)
   diagnose       [outdir]
   compare csd    [csd-dir] [outdir] [--songs a|b|all|en001a,…] [--body female] [--jobs n]
                  [--against earlier/score.json]  (score.json: distance to the singer, and the verdict)
@@ -113,8 +113,15 @@ fn run(args: Vec<String>) -> Result<(), String> {
         ["compare", "csd", ..] => compare::csd(&ctx, &args[2..]),
         ["compare", "tsp", ..] => compare::tsp::run(&ctx, &args[2..]),
         ["diagnose", ..] => diagnose::run(&ctx, &args[1..]),
-        ["syllables", text] => render::g2p()
-            .map(|g| chimera::phonetics::syllables::lyrics_to_syllables(text, &g))
+        ["syllables", ..] => match &args[1..] {
+            [text] => Ok((None, text.as_str())),
+            [flag, lang, text] if flag == "--lang" => Ok((Some(lang.as_str()), text.as_str())),
+            _ => Err(USAGE.to_string()),
+        }
+        .and_then(|(lang, text)| {
+            let latin = render::latin(lang)?;
+            render::g2p().map(|g| chimera::phonetics::syllables::lyrics_to_syllables_in(text, &g, latin))
+        })
             .and_then(|s| serde_json::to_string(&s).map_err(|e| e.to_string()))
             .map(|j| println!("{j}")),
         ["calibrate", "vowels", ..] => calibrate::vowels(&args[2..]),

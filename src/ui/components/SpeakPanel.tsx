@@ -6,6 +6,7 @@ import { mouthWords } from "../mouthWords.ts";
 import { tokenizeIpa } from "../../wasm/engine.ts";
 import { Menu, Slider } from "./Controls.tsx";
 import { Chip, Screen } from "./Screen.tsx";
+import { useSing, LYRICS_LANGS } from "../singing.ts";
 import { ActionBar, PrimaryButton } from "./ActionBar.tsx";
 import { ScoreView, planNow } from "./ScoreView.tsx";
 import { TubeView } from "./TubeView.tsx";
@@ -15,6 +16,7 @@ import { V } from "../colors.ts";
 import { engine } from "../../audio/AudioEngine.ts";
 
 const EXAMPLES = ["Hello. Can you hear me?", "She sells sea shells by the sea shore.", "Every sound here is air moving through a throat.", "The quick brown fox jumps over the lazy dog."];
+const EJEMPLOS = ["Hola. ¿Me oyes?", "El perro de San Roque no tiene rabo.", "Cada sonido es aire que pasa por una garganta.", "¿Dónde está la llave? Está en la cocina."];
 
 // IPA pulmonic consonant chart (rows = manner, columns = place); empty cells are null
 const PLACES = ["Bilabial", "Labiodental", "Dental", "Alveolar", "Postalveolar", "Retroflex", "Palatal", "Velar", "Uvular", "Pharyngeal", "Glottal"];
@@ -134,8 +136,12 @@ export function SpeakRight() {
   const body = useStore((s) => s.body);
   const f0 = useStore((s) => s.source.f0);
   const start = useStore((s) => s.start);
-  const [text, setText] = useState(EXAMPLES[0]);
+  const [text, setText] = useState(() => (useSing.getState().lang === "en" ? EXAMPLES : EJEMPLOS)[0]);
   const [ipa, setIpa] = useState(false);
+  // the language of the words, shared with Sing's lyrics
+  const lang = useSing((s) => s.lang);
+  const setLang = useSing((s) => s.setLang);
+  const examples = lang === "en" ? EXAMPLES : EJEMPLOS;
   const [rate, setRate] = useState(1);
   const [busy, setBusy] = useState(false);
   const [trans, setTrans] = useState(currentPlan()?.transcription ?? "");
@@ -151,7 +157,7 @@ export function SpeakRight() {
       await start();
       // the audio didn't start (the error shows on the bar): speaking would only light Stop
       if (!useStore.getState().started) return;
-      await speakText(text, { ipa, body, rate, f0 });
+      await speakText(text, { ipa, lang, body, rate, f0 });
     } finally {
       setBusy(false);
     }
@@ -172,7 +178,7 @@ export function SpeakRight() {
         <Menu
           label="Examples"
           value=""
-          options={[{ value: "", label: "Examples", disabled: true }, ...EXAMPLES.map((ex) => ({ value: ex, label: ex }))]}
+          options={[{ value: "", label: "Examples", disabled: true }, ...examples.map((ex) => ({ value: ex, label: ex }))]}
           onChange={(ex) => {
             setText(ex);
             setIpa(false);
@@ -181,6 +187,18 @@ export function SpeakRight() {
         <div className="act-slider">
           <Slider label="Rate" value={rate} min={0.5} max={1.8} onChange={setRate} format={(v) => `${v.toFixed(2)}×`} />
         </div>
+        {!ipa && (
+          <Menu
+            label="Language of the text"
+            value={lang}
+            options={LYRICS_LANGS}
+            onChange={(l) => {
+              // the example in the box follows the language
+              if (EXAMPLES.includes(text) || EJEMPLOS.includes(text)) setText((l === "en" ? EXAMPLES : EJEMPLOS)[0]);
+              setLang(l);
+            }}
+          />
+        )}
         <Chip on={ipa} onClick={() => setIpa(!ipa)}>
           Text is IPA
         </Chip>

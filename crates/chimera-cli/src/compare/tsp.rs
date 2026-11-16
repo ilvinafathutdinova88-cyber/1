@@ -112,7 +112,7 @@ fn say_all(utts: &[&Utt], jobs: usize) -> Result<BTreeMap<(String, bool), Said>,
                 loop {
                     let i = next.fetch_add(1, Ordering::Relaxed);
                     let Some((sid, female, text)) = want.get(i) else { break };
-                    match say(&g, text, if *female { "female" } else { "male" }) {
+                    match say(&g, text, if *female { "female" } else { "male" }, chimera::phonetics::syllables::Latin::English) {
                         Ok(sp) => {
                             let phones = sp
                                 .plan

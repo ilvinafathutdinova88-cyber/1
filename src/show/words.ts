@@ -3,6 +3,7 @@
  * melody file (the one `chimera render notes` sang), as Sing mode's demo shows them.
  */
 import type { Syllable } from "../wasm/types.ts";
+import type { LyricsLang } from "../wasm/engine.ts";
 import type { MouthWord } from "../ui/mouthWords.ts";
 
 /** a melody file: `{"bpm", "t0"?, "lyrics", "notes": [[midi, beats], ...]}` (midi <= 0 is a rest) */
@@ -11,8 +12,10 @@ export interface Melody {
   t0?: number;
   lyrics: string;
   notes: [number, number][];
-  /** sung syllables from a language front end: used instead of reading the lyrics as English */
+  /** sung syllables from a language front end: used instead of reading the lyrics */
   syllables?: Syllable[];
+  /** the language Latin letters are read in, as `render notes` reads it ("en" when left out) */
+  lang?: LyricsLang;
 }
 
 export interface SungWords {

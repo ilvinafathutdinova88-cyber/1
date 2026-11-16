@@ -25,6 +25,7 @@ Korean and Mandarin need (`ɕ ʑ tɕ dʑ tʂ dʐ ɥ`, step 3) and aspiration as 
 | Latin | English | CMUdict (letter-to-sound until it loads) | `phonetics/english.rs`, `syllables.rs` |
 | Hangul | Korean | nothing: a block's letters are its sounds | `phonetics/korean.rs` |
 | Cyrillic | Russian | nothing: spelling rules, stress marked with an acute ([russian.md](russian.md)) | `phonetics/russian.rs` |
+| Latin, when chosen | Spanish | nothing: spelling rules, stress from the spelling ([spanish.md](spanish.md)) | `phonetics/spanish.rs` |
 
 The router (`read_lyrics` in `syllables.rs`) sends each word to the front end whose script it is
 in, so a line can mix them (`twinkle 빵야 star`). It also handles what every language shares:
@@ -135,7 +136,8 @@ in for a native listener; the test says where to look and whether a change moved
 
 ## Not yet
 
-- **Latin-script languages.** Routing by script can't tell Turkish or German from English, so
-  Latin text is English. The second Latin-script front end brings an explicit language choice,
-  with English the default (#40).
+- **More Latin-script languages.** Routing by script can't tell Spanish from English, so the
+  language of Latin letters is an explicit choice (`Latin` in `syllables.rs`, `lang` in the wasm
+  call, `render notes` and `chimera syllables --lang`, a menu on Sing's Lyrics screen), with
+  English the default. Another Latin-script language adds a value there.
 - **Tone and pitch accent** need pitch contours (#32 step 4).

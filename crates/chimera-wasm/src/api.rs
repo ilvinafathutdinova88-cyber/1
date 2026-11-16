@@ -124,9 +124,27 @@ fn dispatch(st: &mut State, req: &Value) -> Res {
             st.g2p.load_dict(&arg::<String>(req, "text")?);
             Ok(json!(true))
         }
-        "g2pPhrases" => to_json(&st.g2p.to_phrases(&arg::<String>(req, "text")?)),
+        // "lang": "en" (the default), or "es" for Spanish (Spain) text
+        "g2pPhrases" => {
+            let text = arg::<String>(req, "text")?;
+            match arg::<Option<String>>(req, "lang")?.as_deref() {
+                None | Some("en") => to_json(&st.g2p.to_phrases(&text)),
+                Some(code) => match syllables::Latin::from_code(code) {
+                    Some(syllables::Latin::Spanish) => to_json(&chimera::phonetics::spanish::to_phrases(&text)),
+                    _ => Err(format!("lang: unknown {code:?}")),
+                },
+            }
+        }
         "g2pWord" => to_json(&st.g2p.word(&arg::<String>(req, "word")?, arg::<Option<bool>>(req, "reduce")?.unwrap_or(true))),
-        "lyricsToSyllables" => to_json(&syllables::lyrics_to_syllables(&arg::<String>(req, "text")?, &st.g2p)),
+        // "lang": which language reads Latin letters ("en", "es"); English when left out
+        "lyricsToSyllables" => {
+            let lang = arg::<Option<String>>(req, "lang")?;
+            let latin = match lang.as_deref() {
+                None => syllables::Latin::English,
+                Some(code) => syllables::Latin::from_code(code).ok_or_else(|| format!("lang: unknown {code:?}"))?,
+            };
+            to_json(&syllables::lyrics_to_syllables_in(&arg::<String>(req, "text")?, &st.g2p, latin))
+        }
         // ---------------------------------------------------------------- creatures
         "creaturePreview" => {
             let id: String = arg(req, "id")?;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store.ts";
-import { useSing, playTune, stopSinging, soundingSyllable, sungNow, TUNES, ensureDictionary } from "../singing.ts";
+import { useSing, playTune, stopSinging, soundingSyllable, sungNow, TUNES, ensureDictionary, LYRICS_LANGS } from "../singing.ts";
 import { engine } from "../../audio/AudioEngine.ts";
 import { canRecord, Clip } from "../../song/record.ts";
 import { mouthWords } from "../mouthWords.ts";
@@ -84,6 +84,13 @@ function Lyrics() {
       </div>
     </div>
   );
+}
+
+/** the language words in Latin letters are sung in (Hangul and Cyrillic are read as Korean and Russian) */
+function LyricsLanguage() {
+  const lang = useSing((s) => s.lang);
+  const setLang = useSing((s) => s.setLang);
+  return <Menu label="Language of the lyrics" value={lang} options={LYRICS_LANGS} onChange={setLang} />;
 }
 
 function SongControls() {
@@ -259,7 +266,7 @@ export function SingRight() {
       <Screen className="s-roll" title="Pitch">
         <PianoRoll />
       </Screen>
-      <Screen className="s-lyrics" title="Lyrics">
+      <Screen className="s-lyrics" title="Lyrics" tools={<LyricsLanguage />}>
         <Lyrics />
       </Screen>
       <Screen className="s-spec" title="Spectrum" sub={ring ? "Ring on" : ""}>
