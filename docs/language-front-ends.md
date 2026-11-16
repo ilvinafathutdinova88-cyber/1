@@ -24,6 +24,7 @@ Korean and Mandarin need (`ɕ ʑ tɕ dʑ tʂ dʐ ɥ`, step 3) and aspiration as 
 |---|---|---|---|
 | Latin | English | CMUdict (letter-to-sound until it loads) | `phonetics/english.rs`, `syllables.rs` |
 | Hangul | Korean | nothing: a block's letters are its sounds | `phonetics/korean.rs` |
+| Arabic | Modern Standard or Egyptian Arabic | Arabic letters and vowel marks | `phonetics/arabic.rs` |
 | Cyrillic | Russian | nothing: spelling rules, stress marked with an acute ([russian.md](russian.md)) | `phonetics/russian.rs` |
 
 The router (`read_lyrics` in `syllables.rs`) sends each word to the front end whose script it is
@@ -32,6 +33,15 @@ melisma marks (`-`, `~`), phrase punctuation and word ends.
 
 Characters no front end claims are skipped, as before: `Zürich` sings "Z rich". Nothing after them
 is lost.
+
+## Arabic
+
+Arabic text is routed by script to a dedicated front end and then uses the same IPA, syllable,
+planner, and physical voice pipeline as English. It reads vowel marks, sukūn, shadda, tanwīn,
+long vowels, emphatic consonants, and common Modern Standard/Egyptian pronunciation differences.
+The pronunciation menu selects the dialect; mixed Arabic and English text remains supported.
+The interface stays in English, while the Speak and lyrics text boxes use `dir="auto"` for Arabic.
+The Arabic demo song is the classical poem *Sawt Safir al-Bulbul*.
 
 `chimera syllables "<lyrics>"` prints what the front ends read, one JSON syllable per sung note:
 the quickest way to check a front end.

@@ -13,8 +13,15 @@ import { Stroboscope } from "./Stroboscope.tsx";
 import type { InfoFn, SlotsFn } from "./AnatomyView.tsx";
 import { V } from "../colors.ts";
 import { engine } from "../../audio/AudioEngine.ts";
+import type { ArabicDialect } from "../../wasm/types.ts";
 
-const EXAMPLES = ["Hello. Can you hear me?", "She sells sea shells by the sea shore.", "Every sound here is air moving through a throat.", "The quick brown fox jumps over the lazy dog."];
+const EXAMPLES = [
+  "Hello. Can you hear me?",
+  "She sells sea shells by the sea shore.",
+  "Every sound here is air moving through a throat.",
+  "The quick brown fox jumps over the lazy dog.",
+  "\u0627\u0650\u0633\u0652\u0645\u0650\u064a \u0627\u0644\u0652\u0641\u064e\u0627\u0631\u064f\u0648\u0642\u064f\u060c \u0648\u064e\u0623\u064f\u0637\u064e\u0648\u0651\u0650\u0631\u064f \u0645\u064e\u0634\u064e\u0627\u0631\u0650\u064a\u0639\u064e \u0628\u0650\u0627\u0633\u0652\u062a\u0650\u062e\u0652\u062f\u064e\u0627\u0645\u0650 \u0627\u0644\u0630\u0651\u064e\u0643\u064e\u0627\u0621\u0650 \u0627\u0644\u0627\u0650\u0635\u0652\u0637\u0650\u0646\u064e\u0627\u0639\u0650\u064a\u0651\u0650.",
+];
 
 // IPA pulmonic consonant chart (rows = manner, columns = place); empty cells are null
 const PLACES = ["Bilabial", "Labiodental", "Dental", "Alveolar", "Postalveolar", "Retroflex", "Palatal", "Velar", "Uvular", "Pharyngeal", "Glottal"];
@@ -137,6 +144,7 @@ export function SpeakRight() {
   const [text, setText] = useState(EXAMPLES[0]);
   const [ipa, setIpa] = useState(false);
   const [rate, setRate] = useState(1);
+  const [dialect, setDialect] = useState<ArabicDialect>("msa");
   const [busy, setBusy] = useState(false);
   const [trans, setTrans] = useState(currentPlan()?.transcription ?? "");
   const [vowel, setVowel] = useState("ɑ");
@@ -151,7 +159,7 @@ export function SpeakRight() {
       await start();
       // the audio didn't start (the error shows on the bar): speaking would only light Stop
       if (!useStore.getState().started) return;
-      await speakText(text, { ipa, body, rate, f0 });
+      await speakText(text, { ipa, body, rate, f0, dialect });
     } finally {
       setBusy(false);
     }
@@ -181,6 +189,7 @@ export function SpeakRight() {
         <div className="act-slider">
           <Slider label="Rate" value={rate} min={0.5} max={1.8} onChange={setRate} format={(v) => `${v.toFixed(2)}×`} />
         </div>
+        <Menu label="Arabic pronunciation" value={dialect} options={[{ value: "egyptian", label: "Egyptian" }, { value: "msa", label: "Standard Arabic" }]} onChange={setDialect} />
         <Chip on={ipa} onClick={() => setIpa(!ipa)}>
           Text is IPA
         </Chip>
@@ -190,6 +199,7 @@ export function SpeakRight() {
           <div className="say-row">
             <textarea
               value={text}
+              dir="auto"
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void speak();

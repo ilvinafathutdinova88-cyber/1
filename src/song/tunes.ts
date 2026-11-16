@@ -18,6 +18,14 @@ export interface Tune {
   lyrics?: string;
 }
 
+export const SAWT_SAFIR_AL_BULBUL_ID = "sawt-safir-al-bulbul";
+export const SAWT_SAFIR_AL_BULBUL_LYRICS = [
+  "\u0635\u064e\u0648\u0652\u062a\u064f \u0635\u064e\u0641\u0650\u064a\u0631\u0650 \u0627\u0644\u0652\u0628\u064f\u0644\u0652\u0628\u064f\u0644\u0650",
+  "\u0647\u064e\u064a\u0651\u064e\u062c\u064e \u0642\u064e\u0644\u0652\u0628\u0650\u064a\u064e \u0627\u0644\u062b\u0651\u064e\u0645\u0650\u0644\u064e",
+  "\u0627\u0644\u0652\u0645\u064e\u0627\u0621\u064f \u0648\u064e\u0627\u0644\u0632\u0651\u064e\u0647\u0652\u0631\u064f \u0645\u064e\u0639\u064b\u0627",
+  "\u0645\u064e\u0639\u064e \u0632\u064e\u0647\u0652\u0631\u0650 \u0644\u064e\u062d\u0652\u0638\u0650 \u0627\u0644\u0652\u0645\u064f\u0642\u064e\u0644\u0650",
+].join("\n");
+
 /** the demo songs the moods take their melodies from */
 const borrowed = new Set<string>();
 
@@ -88,6 +96,22 @@ const MOODS: Tune[] = [
   fromDemo("twinkle", "Twinkle, twinkle", "Twinkle, twinkle", [7, 7]),
 ];
 
+const ARABIC_TUNES: Tune[] = [
+  {
+    id: SAWT_SAFIR_AL_BULBUL_ID,
+    name: "Sawt Safir al-Bulbul",
+    bpm: 108,
+    octave: { male: -1, female: 0, child: 0 },
+    phrases: [
+      [[67, 0.5], [67, 0.5], [69, 0.5], [67, 0.5], [71, 0.5], [69, 0.5], [67, 0.5], [65, 1.5]],
+      [[65, 0.5], [67, 0.5], [69, 0.5], [71, 0.5], [69, 0.5], [67, 0.5], [65, 0.5], [62, 1.5]],
+      [[69, 0.5], [69, 0.5], [71, 0.5], [69, 0.5], [72, 0.5], [71, 0.5], [69, 0.5], [67, 1.5]],
+      [[67, 0.5], [69, 0.5], [71, 0.5], [72, 0.5], [71, 0.5], [69, 0.5], [67, 0.5], [65, 1.5]],
+    ],
+    lyrics: SAWT_SAFIR_AL_BULBUL_LYRICS,
+  },
+];
+
 /** every other demo song as written: one phrase, its own words (a song added to the engine's catalog shows up here) */
 const SONGS: Tune[] = DEMO_SONGS.filter((d) => !borrowed.has(d.name)).map((d) => ({
   id: `song:${d.name}`,
@@ -98,4 +122,4 @@ const SONGS: Tune[] = DEMO_SONGS.filter((d) => !borrowed.has(d.name)).map((d) =>
   lyrics: d.lyrics,
 }));
 
-export const TUNES: readonly Tune[] = [...MOODS, ...SONGS];
+export const TUNES: readonly Tune[] = [...MOODS, ...ARABIC_TUNES, ...SONGS];

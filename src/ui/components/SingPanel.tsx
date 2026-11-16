@@ -52,6 +52,7 @@ function Lyrics() {
     <div className="lyrics">
       <textarea
         value={lyrics}
+        dir="auto"
         onChange={(e) => setLyrics(e.target.value)}
         onKeyDown={(e) => e.stopPropagation()}
         rows={Math.min(4, lyrics.split("\n").length)}
@@ -135,6 +136,8 @@ function SongControls() {
  */
 function SingActions() {
   const start = useStore((s) => s.start);
+  const arabicDialect = useSing((s) => s.arabicDialect);
+  const setArabicDialect = useSing((s) => s.setArabicDialect);
   const playing = useSing((s) => s.playing);
   const tune = useSing((s) => s.tune);
   const setTune = useSing((s) => s.setTune);
@@ -227,6 +230,7 @@ function SingActions() {
           if ((playing || pending) && !recording) sing(id);
         }}
       />
+      <Menu label="Arabic pronunciation" value={arabicDialect} options={[{ value: "egyptian", label: "Egyptian" }, { value: "msa", label: "Standard Arabic" }]} onChange={setArabicDialect} />
       {canRecord() && (
         <Chip toggle={false} onClick={() => (recording ? stop() : sing(tune, true))} title="Sing it again and record the face into a video">
           {recording ? "Cancel" : "Record video"}

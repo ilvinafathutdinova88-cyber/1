@@ -174,6 +174,7 @@ struct Seg<'a> {
     vot: Option<f64>,
     nasalized: Option<bool>,
     palatalized: Option<bool>,
+    pharyngealized: Option<bool>,
     breathy: Option<bool>,
 }
 
@@ -182,6 +183,9 @@ const BREATHY_ABDUCTION: f64 = 0.1;
 /// how long past its release a breathy-voiced stop's folds stay apart (s), at most to the end of
 /// the next segment
 const BREATHY_RELEASE: f64 = 0.08;
+
+/// Prototype blend from an Arabic emphatic target into a neighbouring vowel.
+const EMPHATIC_SPREAD: f64 = 0.35;
 
 /// velum port area (cm²) of a nasalized vowel, and the ramps of its lowering and raising (s)
 const NASAL_VOWEL_PORT: f64 = 0.3;
@@ -211,16 +215,23 @@ pub fn plan_utterance(input: &[Segment], o: &PlanOptions) -> Plan {
             let base = durs[si];
             for (i, p) in parts.iter().enumerate() {
                 let dur = if parts.len() > 1 { base * (if i == 0 { 0.55 } else { 0.45 }) } else { base };
-                segs.push(Seg { ipa: p, dur: Some(dur), stress: s.stress, f0: s.f0, def: None, vowel: None, glide_from: i > 0, aspirated: None, vot: None, nasalized: s.nasalized, palatalized: None, breathy: s.breathy });
+                segs.push(Seg { ipa: p, dur: Some(dur), stress: s.stress, f0: s.f0, def: None, vowel: None, glide_from: i > 0, aspirated: None, vot: None, nasalized: s.nasalized, palatalized: None, pharyngealized: s.pharyngealized, breathy: s.breathy });
             }
         } else {
-            segs.push(Seg { ipa: &s.ipa, dur: Some(durs[si]), stress: s.stress, f0: s.f0, def: None, vowel: None, glide_from: false, aspirated: s.aspirated, vot: s.vot, nasalized: s.nasalized, palatalized: s.palatalized, breathy: s.breathy });
+            segs.push(Seg { ipa: &s.ipa, dur: Some(durs[si]), stress: s.stress, f0: s.f0, def: None, vowel: None, glide_from: false, aspirated: s.aspirated, vot: s.vot, nasalized: s.nasalized, palatalized: s.palatalized, pharyngealized: s.pharyngealized, breathy: s.breathy });
         }
     }
     for s in segs.iter_mut() {
-        let v = vowel_artic(s.ipa, body);
-        if v.is_some() {
-            s.vowel = v;
+        if let Some(mut v) = vowel_artic(s.ipa, body) {
+            if s.pharyngealized == Some(true) {
+                let emphatic = phoneme("sˤ", body).expect("Arabic emphatic targets are in the phoneme inventory").targets;
+                for key in [ArticKey::Root, ArticKey::TbX, ArticKey::TbY] {
+                    if let (Some(base), Some(target)) = (v.get(key), emphatic.get(key)) {
+                        v.set(key, base + EMPHATIC_SPREAD * (target - base));
+                    }
+                }
+            }
+            s.vowel = Some(v);
         } else {
             s.def = phoneme(s.ipa, body);
         }

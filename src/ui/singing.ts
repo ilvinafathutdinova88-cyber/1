@@ -11,12 +11,13 @@ import { create } from "zustand";
 import { engine } from "../audio/AudioEngine.ts";
 import { g2p } from "./speech.ts";
 import { lyricsToSyllables, type Syllable } from "../wasm/engine.ts";
+import type { ArabicDialect } from "../wasm/types.ts";
 import { planSong, planNoteOn, planNoteOff, planMelisma } from "../wasm/engine.ts";
 import { EXHALE_LABEL } from "../wasm/engine.ts";
 import type { Gesture } from "../wasm/types.ts";
 import { nearestBody, type BodyMix } from "./body.ts";
 import { TUNES } from "../song/tunes.ts";
-import { fitSong, la } from "../song/fit.ts";
+import { fitSong, groupArabicWordPitches, la } from "../song/fit.ts";
 
 /** A note on the piano roll, on the voice clock (s); t1 is null while it is held. */
 export interface RollNote {
@@ -30,13 +31,15 @@ export interface RollNote {
 /** What the piano roll draws, read every frame (mutated in place: no re-render per note). */
 export const roll: { notes: RollNote[] } = { notes: [] };
 
-export const DEFAULT_LYRICS = "Hello there, I am a voice made of air.";
+export const DEFAULT_LYRICS = "طَلَعَ الْفَجْرُ وَغَنَّى الطَّيْرُ\nوَأَشْرَقَ نُورٌ جَمِيلٌ";
+const LEGACY_DEFAULT_LYRICS = "Hello there, I am a voice made of air.";
 
 /** sung when the lyrics are empty */
 const AH: Syllable = { text: "ah", onset: [], nucleus: { ipa: "ɑ", stress: 1 }, coda: [], wordEnd: true, phraseEnd: false };
 
 interface SingState {
   lyrics: string;
+  arabicDialect: ArabicDialect;
   syllables: Syllable[];
   /** the syllable the next key sings */
   cursor: number;
@@ -53,6 +56,7 @@ interface SingState {
   /** index in `syllables` of the one the tune is singing (−1: none, or the tune sings "la") */
   at: number;
   setLyrics: (text: string) => void;
+  setArabicDialect: (dialect: ArabicDialect) => void;
   setCursor: (i: number) => void;
   setVibrato: (cents: number) => void;
   setTune: (id: string) => void;
@@ -63,16 +67,17 @@ interface SingState {
 const KEPT = "chimera-sing";
 
 /** the last session's words, tune, tempo and key (anything missing or odd: the defaults) */
-function kept(): { lyrics: string; tune: string; tempo: number; key: number } {
-  const d = { lyrics: DEFAULT_LYRICS, tune: TUNES[0].id, tempo: 1, key: 0 };
+function kept(): { lyrics: string; tune: string; tempo: number; key: number; arabicDialect: ArabicDialect } {
+  const d = { lyrics: DEFAULT_LYRICS, tune: TUNES[0].id, tempo: 1, key: 0, arabicDialect: "msa" as ArabicDialect };
   try {
     const k = JSON.parse(localStorage.getItem(KEPT) ?? "null") as Record<string, unknown> | null;
     if (!k) return d;
     return {
-      lyrics: typeof k.lyrics === "string" ? k.lyrics : d.lyrics,
+      lyrics: typeof k.lyrics === "string" && k.lyrics !== LEGACY_DEFAULT_LYRICS ? k.lyrics : d.lyrics,
       tune: TUNES.some((t) => t.id === k.tune) ? (k.tune as string) : d.tune,
       tempo: typeof k.tempo === "number" && k.tempo >= 0.5 && k.tempo <= 1.5 ? k.tempo : d.tempo,
       key: typeof k.key === "number" && Math.abs(k.key) <= 12 ? Math.round(k.key) : d.key,
+      arabicDialect: k.arabicDialect === "msa" || k.arabicDialect === "egyptian" ? k.arabicDialect : d.arabicDialect,
     };
   } catch {
     return d; // no storage here (a private window): start fresh
@@ -85,7 +90,8 @@ let ownWords: string | null = null;
 
 export const useSing = create<SingState>((set, get) => ({
   lyrics: atLoad.lyrics,
-  syllables: lyricsToSyllables(atLoad.lyrics),
+  arabicDialect: atLoad.arabicDialect,
+  syllables: lyricsToSyllables(atLoad.lyrics, atLoad.arabicDialect),
   cursor: 0,
   vibrato: 35,
   tune: atLoad.tune,
@@ -95,7 +101,11 @@ export const useSing = create<SingState>((set, get) => ({
   at: -1,
   setLyrics: (text) => {
     stopDemo();
-    set({ lyrics: text, syllables: lyricsToSyllables(text), cursor: 0 });
+    set({ lyrics: text, syllables: lyricsToSyllables(text, get().arabicDialect), cursor: 0 });
+  },
+  setArabicDialect: (arabicDialect) => {
+    const syllables = lyricsToSyllables(get().lyrics, arabicDialect);
+    set({ arabicDialect, syllables, cursor: Math.min(get().cursor, Math.max(0, syllables.length - 1)) });
   },
   setCursor: (i) => set({ cursor: Math.max(0, Math.min(i, Math.max(0, get().syllables.length - 1))) }),
   setVibrato: (cents) => set({ vibrato: cents }),
@@ -118,9 +128,9 @@ export const useSing = create<SingState>((set, get) => ({
 }));
 
 useSing.subscribe((s, p) => {
-  if (s.lyrics === p.lyrics && s.tune === p.tune && s.tempo === p.tempo && s.key === p.key) return;
+  if (s.lyrics === p.lyrics && s.tune === p.tune && s.tempo === p.tempo && s.key === p.key && s.arabicDialect === p.arabicDialect) return;
   try {
-    localStorage.setItem(KEPT, JSON.stringify({ lyrics: s.lyrics, tune: s.tune, tempo: s.tempo, key: s.key }));
+    localStorage.setItem(KEPT, JSON.stringify({ lyrics: s.lyrics, tune: s.tune, tempo: s.tempo, key: s.key, arabicDialect: s.arabicDialect }));
   } catch {
     // not kept: the session still works
   }
@@ -133,7 +143,7 @@ export function ensureDictionary(): void {
     .load()
     .then(() => {
       const s = useSing.getState();
-      const syllables = lyricsToSyllables(s.lyrics);
+      const syllables = lyricsToSyllables(s.lyrics, s.arabicDialect);
       useSing.setState({ syllables, cursor: Math.min(s.cursor, Math.max(0, syllables.length - 1)) });
     })
     .catch(() => {
@@ -147,6 +157,7 @@ interface Sounding {
   midi: number;
   /** the syllable whose vowel is sounding (a melisma keeps its parent's, for the coda) */
   syl: Syllable;
+  syllableIndex: number;
   tag: number;
   note: RollNote;
 }
@@ -155,10 +166,66 @@ let sounding: Sounding | null = null;
 
 /** How a syllable is written at the mouth: a hyphen when its word goes on. */
 const written = (s: Syllable) => s.text + (s.wordEnd ? "" : "-");
+const ARABIC_SCRIPT = /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/u;
+
+export interface LyricDisplayUnit {
+  start: number;
+  end: number;
+  text: string;
+  wordEnd: boolean;
+  phraseEnd: boolean;
+  melisma?: boolean;
+}
+
+/** The whole Arabic word for a syllable, or null when the syllable belongs to another script. */
+export function arabicWordAt(
+  syllables: Syllable[],
+  index: number,
+): { start: number; end: number; text: string } | null {
+  if (index < 0 || index >= syllables.length) return null;
+  let anchor = index;
+  while (anchor > 0 && syllables[anchor].melisma) anchor--;
+  let start = anchor;
+  while (start > 0 && !syllables[start - 1].wordEnd) start--;
+  let end = anchor;
+  while (end < syllables.length - 1 && !syllables[end].wordEnd) end++;
+  const word = syllables.slice(start, end + 1);
+  if (!word.some((s) => !s.melisma && ARABIC_SCRIPT.test(s.text))) return null;
+  return { start, end, text: word.filter((s) => !s.melisma).map((s) => s.text).join("") };
+}
+
+/** Keep Arabic spelling together in the lyrics display while retaining every phonetic syllable. */
+export function lyricDisplayUnits(syllables: Syllable[]): LyricDisplayUnit[] {
+  const units: LyricDisplayUnit[] = [];
+  for (let start = 0; start < syllables.length; ) {
+    const arabic = arabicWordAt(syllables, start);
+    if (arabic?.start === start) {
+      const last = syllables[arabic.end];
+      units.push({ ...arabic, wordEnd: true, phraseEnd: last.phraseEnd });
+      start = arabic.end + 1;
+      continue;
+    }
+    let end = start;
+    while (end < syllables.length - 1 && !syllables[end].wordEnd) end++;
+    for (let i = start; i <= end; i++) {
+      const s = syllables[i];
+      units.push({
+        start: i,
+        end: i,
+        text: written(s),
+        wordEnd: s.wordEnd,
+        phraseEnd: s.phraseEnd,
+        melisma: s.melisma,
+      });
+    }
+    start = end + 1;
+  }
+  return units;
+}
 
 /**
- * The syllable being sung now, for the words at the mouth: the demo's note under the clock, or
- * the held key's. A melisma keeps its syllable's key, so the word stays while the pitch moves.
+ * The text being sung at the mouth: Arabic is shown as a whole word, other scripts as syllables.
+ * A melisma keeps its parent's key, so the displayed unit stays while the pitch moves.
  */
 export function sungNow(): { key: unknown; text: string } | null {
   const d = demoRun;
@@ -167,14 +234,20 @@ export function sungNow(): { key: unknown; text: string } | null {
     const t = now() - d.offset;
     // notes follow one another without a gap, so a melisma's syllable stays put
     const k = d.times.findIndex(([a, b]) => t >= a && t < b);
-    return k < 0 ? null : { key: `${d.id}:${d.parent[k]}`, text: d.shown[k] };
+    if (k < 0) return null;
+    const syllableIndex = d.from[d.parent[k]];
+    const word = arabicWordAt(useSing.getState().syllables, syllableIndex);
+    return { key: `${d.id}:${d.parent[k]}`, text: word?.text ?? d.shown[k] };
   }
-  return sounding ? { key: sounding, text: written(sounding.syl) } : null;
+  if (!sounding) return null;
+  const word = arabicWordAt(useSing.getState().syllables, sounding.syllableIndex);
+  return { key: sounding, text: word?.text ?? written(sounding.syl) };
 }
 
-/** The syllable whose vowel is sounding from the keys now (null when no key sings). */
+/** The current lyric unit from the keys (an Arabic word, or another script's syllable). */
 export function soundingSyllable(): string | null {
-  return sounding?.syl.text ?? null;
+  if (!sounding) return null;
+  return arabicWordAt(useSing.getState().syllables, sounding.syllableIndex)?.text ?? sounding.syl.text;
 }
 /** keys down, oldest first */
 let keys: number[] = [];
@@ -205,7 +278,7 @@ function parentOf(syls: Syllable[], i: number): Syllable {
   return AH;
 }
 
-function startNote(syl: Syllable, midi: number, velocity: number, body: BodyMix, text: string): void {
+function startNote(syl: Syllable, syllableIndex: number, midi: number, velocity: number, body: BodyMix, text: string): void {
   const t = now();
   const tag = nextTag;
   nextTag += 2;
@@ -222,7 +295,7 @@ function startNote(syl: Syllable, midi: number, velocity: number, body: BodyMix,
   const breath = breathFor(velocity);
   for (const g of gs) if (g.targets.breath !== undefined) g.targets = { ...g.targets, breath: g.targets.breath * breath };
   engine.scheduleGestures(gs);
-  sounding = { midi, syl, tag, note: addNote(midi, t, text) };
+  sounding = { midi, syl, syllableIndex, tag, note: addNote(midi, t, text) };
 }
 
 /** The held vowel moves to a new pitch (melisma, or back to a key still down). */
@@ -245,7 +318,7 @@ export function singNoteOn(midi: number, velocity: number, body: BodyMix): void 
   const syl = syls[i];
   if (syl.melisma && sounding) glide(midi, syl.text);
   // a melisma with nothing held: sing its vowel again, without the onset
-  else startNote(syl.melisma ? { ...parentOf(syls, i), onset: [] } : syl, midi, velocity, body, syl.text);
+  else startNote(syl.melisma ? { ...parentOf(syls, i), onset: [] } : syl, i, midi, velocity, body, syl.text);
   useSing.setState({ cursor: (i + 1) % syls.length });
 }
 
@@ -296,7 +369,7 @@ interface TuneRun {
 /** What a caller (Record video) does as a tune's run begins, ends or is stopped. */
 export interface TuneHooks {
   /** just before it's sent to the voice, after every wait (a throw: it isn't sung) */
-  onStart?: () => void;
+  onStart?: (() => void) | (() => Promise<void>);
   /** sung to the end */
   onEnd?: () => void;
   /** stopped before the end, from anywhere (Stop, another tune, the mode or body changing) */
@@ -338,22 +411,28 @@ export async function playTune(id: string, body: BodyMix, ready?: () => Promise<
   if (token !== demoToken) return false;
   const st = useSing.getState();
   // read again: the dictionary may have arrived since the words were typed
-  const own = lyricsToSyllables(st.lyrics);
-  const words = own.length ? own : lyricsToSyllables(la(tune));
+  const own = lyricsToSyllables(st.lyrics, st.arabicDialect);
+  const words = own.length ? own : lyricsToSyllables(la(tune), st.arabicDialect);
   const shift = tune.octave[nearestBody(body)] * 12 + st.key;
-  // a demo song's own words, unedited: a syllable to each note as written (as `chimera render song`)
+  // Demo tracks store the whole melody as one phrase; multi-phrase Arabic tunes repeat motifs.
+  const directTrack = tune.lyrics !== undefined && tune.phrases.length === 1 && st.lyrics === tune.lyrics && own.length > 0;
   const { notes, from } =
-    tune.lyrics !== undefined && st.lyrics === tune.lyrics && own.length
+    directTrack
       ? {
           notes: tune.phrases[0].map(([midi, beats], i) => ({ midi: midi + shift, beats, syl: own[i % own.length] })),
           from: tune.phrases[0].map((_, i) => i % own.length),
         }
       : fitSong(tune, words, shift);
+  if (directTrack) groupArabicWordPitches(notes, from, own);
   if (!notes.length) return false;
   const bpm = tune.bpm * st.tempo;
   const t0 = 0.35;
   const plan = planSong(notes, { body, bpm, t0, vibrato: st.vibrato });
-  hooks.onStart?.();
+  await hooks.onStart?.();
+  if (token !== demoToken) {
+    hooks.onStop?.();
+    return false;
+  }
   const beat = 60 / bpm;
   let t = t0;
   const times = notes.map((n): [number, number] => {
@@ -364,8 +443,17 @@ export async function playTune(id: string, body: BodyMix, ready?: () => Promise<
   const planId = engine.schedule({ gestures: plan.gestures, segments: plan.segments, end: plan.end });
   const parent: number[] = [];
   notes.forEach((n, i) => parent.push(n.syl.melisma && i > 0 ? parent[i - 1] : i));
-  const shown = parent.map((p) => written(notes[p].syl));
-  demoRun = { id: planId, times, midi: notes.map((n) => n.midi), text: notes.map((n) => n.syl.text), shown, parent, from: own.length ? from : from.map(() => -1), end: plan.end, offset: null, hooks };
+  const shown = parent.map((p) => {
+    const word = arabicWordAt(own, from[p]);
+    return word?.text ?? written(notes[p].syl);
+  });
+  const text = notes.map((note, i) => {
+    const word = arabicWordAt(own, from[i]);
+    if (!word) return note.syl.text;
+    const previous = i > 0 ? arabicWordAt(own, from[i - 1]) : null;
+    return previous?.start === word.start ? "" : word.text;
+  });
+  demoRun = { id: planId, times, midi: notes.map((n) => n.midi), text, shown, parent, from: own.length ? from : from.map(() => -1), end: plan.end, offset: null, hooks };
   useSing.setState({ syllables: own, cursor: Math.min(st.cursor, Math.max(0, own.length - 1)), playing: tune.id, at: -1 });
   return true;
 }
