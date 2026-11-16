@@ -173,14 +173,30 @@ the old syllable.
 
 ## MIDI
 
-Supported: notes, velocity (breath), pitch bend (±2 semitones), and all-notes-off / all-sound-off.
-Other controllers are ignored for now. Through clap-wrapper's VST3 layer a controller keeps only its
-last value per block, so bend moves in block-sized steps there; note timing isn't affected.
+Supported: notes, velocity (breath), pitch bend, channel and poly pressure, CC 74 (slide), and
+all-notes-off / all-sound-off. Other controllers are ignored. Expression follows the note sounding;
+after it ends, its channel's expression still moves the release.
+
+- **Pressure** raises the breath, up to 75% above the Breath dial at full pressure, never past the
+  dial's top. Poly pressure counts only on the sounding key.
+- **MPE** (host parameter, default on), lower zone only. Channel 1 is the master channel: its bend
+  is the wheel, ±2 semitones. Channels 2–16 are note channels: a note follows its own channel's
+  bend at ±48 semitones, and its slide moves the brightness up or down from the dial, counted from
+  where the finger landed. With MPE off, a bend on any channel is the ±2 wheel and slide does
+  nothing. Ableton Live sends MPE only with "Enable MPE Mode" on in the device's context menu.
+
+Pressure and brightness (the Breath and Bright dials included) glide to a new value with a 12 ms
+time constant, so a controller's steps aren't heard. Bend glides with the Glide dial.
+
+Through clap-wrapper's VST3 layer a controller keeps only its last value per block, so controllers
+move in block-sized steps there (the glides cover them), and a controller sent with a note arrives
+after it: a slide on the same sample as its note-on counts as the note's starting slide. Note timing
+isn't affected.
 
 ## State
 
 Host parameters (automatable): output gain, vibrato depth and rate, breath, pressed, bright,
-breathy, rough, fry, glide, ring, restart lyrics. IDs are permanent once released.
+breathy, rough, fry, glide, ring, restart lyrics, MPE. IDs are permanent once released.
 
 Everything else is one `#[persist]` JSON field, `Settings`: lyrics, body, mode, posture (the
 articulators changed from neutral, and `tip_free`), voiced, the Play-mode pitch, the start syllable,
