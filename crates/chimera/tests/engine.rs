@@ -94,7 +94,7 @@ fn restating_the_source_during_a_scored_note_changes_nothing() {
     let sing = |restate: bool| {
         let mut e = Engine::new(48000.0);
         let mut note = Targets::default();
-        note.set(ArticKey::TbX, 3.6).set(ControlKey::F0, 180.0).set(ControlKey::BREATH, 0.8).set(ControlKey::VIBRATO, 30.0);
+        note.set(ArticKey::TbX, 3.6).set(ControlKey::F0, 180.0).set(ControlKey::BREATH, 0.8).set(ControlKey::VIBRATO, 30.0).set(ControlKey::ABDUCTION, 0.02);
         e.schedule(&[Gesture::new(0.0, 1e9, 0.03, 0.08, 4.0, note).tag(3.0)], 0.01, false);
         let mut out = vec![0.0f32; 24000];
         for block in out.chunks_mut(37) {
