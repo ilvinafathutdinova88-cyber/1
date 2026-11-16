@@ -37,6 +37,10 @@ const MPE_BEND_RANGE: f64 = 48.0;
 const PRESSURE_DEPTH: f64 = 0.75;
 /// How far a full slide moves the brightness from where the note started.
 const SLIDE_DEPTH: f64 = 1.0;
+/// A slide this soon after its note starts (s) is where the finger landed. A controller sends the
+/// starting slide before the note, but clap-wrapper's VST3 layer passes on one value a block, at
+/// the block's last one's time: after the note, by up to a block.
+const SLIDE_LANDING: f64 = 0.05;
 /// The Breath parameter's maximum (cmH2O): pressure doesn't push past it.
 pub const BREATH_MAX: f32 = 22.0;
 /// Pressure and brightness glide to a new value with this time constant (s), a step every this
@@ -603,18 +607,21 @@ pub struct Core {
     pressure: [f32; 16],
     slide: [f32; 16],
     slide_origin: [f32; 16],
-    /// a note started on the channel and no audio has run since: a slide now is its starting one
-    slide_fresh: [bool; 16],
+    /// samples left of each channel's landing (`SLIDE_LANDING` after a note starts, `landing`
+    /// samples): a slide in it is where the finger landed, not a move
+    slide_landing: [usize; 16],
+    landing: usize,
     /// the last bend from any channel: the wheel when MPE is off
     last_bend: f32,
     /// the channel each key last started on (the on-screen keys: 0)
     note_channel: [u8; 128],
     /// the last note started (Speak, Beatbox)
     last_on: Option<u8>,
-    /// the note whose channel's expression moves the voice, that channel, and its poly pressure
+    /// the note whose channel's expression moves the voice, and that channel
     expr_note: Option<u8>,
     expr_channel: u8,
-    key_pressure: f32,
+    /// each key's poly pressure
+    key_pressure: [f32; 128],
     /// the pressure and brightness the engine has now. They glide to `expression()`: a step every
     /// `EXPR_STEP` samples (`expr_left` to the next), each `expr_coef` of the way left
     expr_now: (f64, f64),
@@ -686,13 +693,14 @@ impl Core {
             pressure: [0.0; 16],
             slide: [0.5; 16],
             slide_origin: [0.5; 16],
-            slide_fresh: [false; 16],
+            slide_landing: [0; 16],
+            landing: (SLIDE_LANDING * sample_rate) as usize,
             last_bend: 0.5,
             note_channel: [0; 128],
             last_on: None,
             expr_note: None,
             expr_channel: 0,
-            key_pressure: 0.0,
+            key_pressure: [0.0; 128],
             expr_now: (0.0, 0.0),
             expr_moving: false,
             expr_left: 0,
@@ -770,7 +778,7 @@ impl Core {
     /// The lung pressure and brightness, with the sounding note's pressure and slide on the dials.
     fn expression(&self) -> (f64, f64) {
         let ch = self.expr_channel as usize;
-        let press = self.pressure[ch].max(self.key_pressure) as f64;
+        let press = self.pressure[ch].max(self.expr_note.map_or(0.0, |note| self.key_pressure[note as usize])) as f64;
         let breath = (self.params.breath as f64 * (1.0 + PRESSURE_DEPTH * press)).min(BREATH_MAX as f64);
         let slide = if self.params.mpe { (self.slide[ch] - self.slide_origin[ch]) as f64 * SLIDE_DEPTH } else { 0.0 };
         (breath, (self.params.bright as f64 + slide).clamp(0.0, 1.0))
@@ -816,21 +824,20 @@ impl Core {
         }
     }
 
-    /// A key went down on this channel (before it is pressed).
+    /// A key starts a note on this channel (before it is pressed).
     fn note_started(&mut self, midi: u8, channel: u8) {
         let ch = channel as usize;
         self.note_channel[midi as usize] = channel;
         self.slide_origin[ch] = self.slide[ch];
-        self.slide_fresh[ch] = true;
+        self.slide_landing[ch] = self.landing;
+        // a controller needn't send a closing zero
+        self.key_pressure[midi as usize] = 0.0;
         self.last_on = Some(midi);
     }
 
     /// A key went down or up: follow the note now sounding.
     fn follow_expression(&mut self) {
         let Some(note) = self.sounding() else { return };
-        if Some(note) != self.expr_note {
-            self.key_pressure = 0.0;
-        }
         self.expr_note = Some(note);
         self.expr_channel = self.note_channel[note as usize];
         // the same key on the same channel still starts its slide over
@@ -845,7 +852,7 @@ impl Core {
         self.pressure = [0.0; 16];
         self.slide = [0.5; 16];
         self.slide_origin = [0.5; 16];
-        self.key_pressure = 0.0;
+        self.key_pressure = [0.0; 128];
         self.update_bend();
         self.glide_expression();
     }
@@ -1165,13 +1172,14 @@ impl Core {
         if p.clear_ui_keys {
             p.clear_ui_keys = false;
             self.lift_ui_keys();
+            self.follow_expression();
         }
         let Pending { notes, .. } = &mut *p;
         for n in notes.drain(..) {
-            if n.on {
-                self.note_started(n.midi & 127, 0);
-            }
             if self.mode == Mode::Beatbox {
+                if n.on {
+                    self.note_started(n.midi & 127, 0);
+                }
                 self.beat_key(Owner::Ui, n.midi & 127, n.velocity, n.on);
                 self.follow_expression();
                 continue;
@@ -1179,7 +1187,9 @@ impl Core {
             let bit = 1u128 << (n.midi & 127);
             if n.on {
                 self.ui_keys |= bit;
+                // a key the host already holds stays the host's note, on its channel
                 if self.host_keys & bit == 0 {
+                    self.note_started(n.midi & 127, 0);
                     self.press(n.midi & 127, n.velocity);
                 }
             } else {
@@ -1225,14 +1235,15 @@ impl Core {
         match ev {
             Event::NoteOn { midi, velocity, channel } => {
                 let midi = midi & 127;
-                self.note_started(midi, channel & 15);
                 let bit = 1u128 << midi;
                 if self.mode == Mode::Beatbox {
+                    self.note_started(midi, channel & 15);
                     self.beat_key(Owner::Host, midi, velocity, true);
                 } else {
                     self.host_keys |= bit;
                     // a repeat from the same owner is a new note; a key the UI already holds isn't
                     if self.ui_keys & bit == 0 {
+                        self.note_started(midi, channel & 15);
                         self.press(midi, velocity);
                     }
                 }
@@ -1252,10 +1263,8 @@ impl Core {
                 }
                 self.follow_expression();
             }
-            Event::AllOff => {
-                self.stop_notes();
-                self.clear_expression();
-            }
+            // not a controller reset: the wheel stays where it is
+            Event::AllOff => self.stop_notes(),
             Event::Bend { channel, value } => {
                 self.bend[(channel & 15) as usize] = value;
                 self.last_bend = value;
@@ -1268,17 +1277,15 @@ impl Core {
                 }
             }
             Event::KeyPressure { midi, value } => {
+                self.key_pressure[(midi & 127) as usize] = value;
                 if Some(midi & 127) == self.expr_note {
-                    self.key_pressure = value;
                     self.glide_expression();
                 }
             }
             Event::Slide { channel, value } => {
                 let ch = (channel & 15) as usize;
                 self.slide[ch] = value;
-                // a controller sends a note's starting slide just before it, but clap-wrapper's
-                // VST3 layer puts controllers after the notes of the same sample
-                if self.slide_fresh[ch] {
+                if self.slide_landing[ch] > 0 {
                     self.slide_origin[ch] = value;
                 }
                 if self.params.mpe && channel & 15 == self.expr_channel {
@@ -1289,7 +1296,9 @@ impl Core {
     }
 
     pub fn render(&mut self, out: &mut [f32]) {
-        self.slide_fresh = [false; 16];
+        for left in &mut self.slide_landing {
+            *left = left.saturating_sub(out.len());
+        }
         let mut rest = &mut *out;
         while self.expr_moving && !rest.is_empty() {
             if self.expr_left == 0 {

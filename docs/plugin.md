@@ -190,8 +190,12 @@ time constant, so a controller's steps aren't heard. Bend glides with the Glide 
 
 Through clap-wrapper's VST3 layer a controller keeps only its last value per block, so controllers
 move in block-sized steps there (the glides cover them), and a controller sent with a note arrives
-after it: a slide on the same sample as its note-on counts as the note's starting slide. Note timing
-isn't affected.
+after it, by up to a block. So a slide in the 50 ms after its note starts counts as where the finger
+landed, in every format. A bend left on a channel by its last note can sound for up to a block at
+the next note's start. Note timing isn't affected.
+
+Not handled: the same pitch held on two channels is one key (the first note-off ends it), RPN 0 and
+6 (the note bend range is fixed at 48), the upper zone, CLAP note expressions.
 
 ## State
 
