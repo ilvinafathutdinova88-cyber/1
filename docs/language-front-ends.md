@@ -25,16 +25,21 @@ Korean and Mandarin need (`ɕ ʑ tɕ dʑ tʂ dʐ ɥ`, step 3) and aspiration as 
 | Latin | English | CMUdict (letter-to-sound until it loads) | `phonetics/english.rs`, `syllables.rs` |
 | Hangul | Korean | nothing: a block's letters are its sounds | `phonetics/korean.rs` |
 | Cyrillic | Russian | nothing: spelling rules, stress marked with an acute ([russian.md](russian.md)) | `phonetics/russian.rs` |
+| Latin, when chosen | Turkish | nothing: spelling rules, stress by rule ([turkish.md](turkish.md)) | `phonetics/turkish.rs` |
 
 The router (`read_lyrics` in `syllables.rs`) sends each word to the front end whose script it is
 in, so a line can mix them (`twinkle 빵야 star`). It also handles what every language shares:
 melisma marks (`-`, `~`), phrase punctuation and word ends.
 
+Script can't tell Latin-script languages apart, so the player chooses which front end reads Latin
+script: English unless Turkish is chosen (`Lang` in `syllables.rs`; EN/TR in Speak and in Sing's
+lyrics). The other scripts are routed as before whichever is chosen.
+
 Characters no front end claims are skipped, as before: `Zürich` sings "Z rich". Nothing after them
 is lost.
 
-`chimera syllables "<lyrics>"` prints what the front ends read, one JSON syllable per sung note:
-the quickest way to check a front end.
+`chimera syllables "<lyrics>" [en|tr]` prints what the front ends read, one JSON syllable per sung
+note: the quickest way to check a front end.
 
 ## Korean
 
@@ -87,7 +92,7 @@ by hand, or to sing a language that has no front end yet.
    it appends new entries and leaves existing ones alone.
 2. **Write the front end**: implement `FrontEnd` (which characters start and continue its words,
    and word → syllables; `word_after` also gets the word before, for words that lean on each
-   other, as a Russian preposition with no vowel does), then add it to the router's list in `lyrics_to_syllables`. A front end
+   other, as a Russian preposition with no vowel does), then add it to the router's lists in `lyrics_in` (a Latin-script language also joins `Lang`). A front end
    that needs data should load it like CMUdict: a gzipped file in `public/data/`, fetched only when
    the lyrics need it.
 3. **Say the phonology** in the syllables (aspiration and its length). Build `Syllable` and
@@ -135,7 +140,6 @@ in for a native listener; the test says where to look and whether a change moved
 
 ## Not yet
 
-- **Latin-script languages.** Routing by script can't tell Turkish or German from English, so
-  Latin text is English. The second Latin-script front end brings an explicit language choice,
-  with English the default (#40).
+- **More Latin-script languages.** Each one joins `Lang`, the player's choice of who reads Latin
+  script (#40).
 - **Tone and pitch accent** need pitch contours (#32 step 4).

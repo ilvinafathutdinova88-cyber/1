@@ -16,6 +16,7 @@ pub mod russian;
 pub mod sing;
 pub mod songs;
 pub mod syllables;
+pub mod turkish;
 pub mod vowel_data;
 
 /// One phoneme in an utterance.
